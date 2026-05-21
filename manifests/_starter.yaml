@@ -1,0 +1,250 @@
+# =============================================================================
+# omni-team STARTER manifest — copy this, rename, fill in
+# =============================================================================
+# Minimum viable manifest. Every key MUST be filled or the bootstrap will warn.
+# For empty optional rules, use the literal string `(none)` in *_md blocks.
+# =============================================================================
+
+project:
+  name: TODO_PROJECT_NAME
+  short_name: todo-project
+  description: |
+    TODO — 2-3 sentence description of the project, stack, and domain.
+
+work_unit_label: Ticket            # e.g. "Mini Package", "Story", "PR"
+work_unit_example_id: "TKT-123"
+spec_root: docs/specs/
+artifact_dir: docs/specs/{mp_id}/agent-pow
+
+post_qa_lead_gate_label: "manual QA + merge"
+
+models:
+  tech_lead: opus
+  backend_reviewer: sonnet
+  frontend_reviewer: sonnet
+  dba: sonnet
+  qa_engineer: sonnet
+  qa_lead: opus
+  perf_engineer: sonnet
+  security_engineer: sonnet
+  ui_smoke_engineer: sonnet
+
+quality_limits:
+  file_lines: 500
+  function_lines: 100
+  function_params: 8
+  nesting_depth: 4
+
+# -----------------------------------------------------------------------------
+backend:
+  framework: TODO_FRAMEWORK         # FastAPI, Django, Express, Rails, Spring Boot
+  language: TODO_LANGUAGE
+  test_cmd: "TODO_TEST_CMD"
+  dev_url: "http://localhost:8000"
+  dev_port: 8000
+  health_url: "http://localhost:8000/health"
+
+  root: TODO_BACKEND_ROOT
+  app_dir: TODO_BACKEND_ROOT/app/
+  models_dir: TODO_BACKEND_ROOT/app/models/
+  schemas_dir: TODO_BACKEND_ROOT/app/schemas/
+  repos_dir: TODO_BACKEND_ROOT/app/repos/
+  services_dir: TODO_BACKEND_ROOT/app/services/
+  routers_dir: TODO_BACKEND_ROOT/app/routers/
+  tests_dir: TODO_BACKEND_ROOT/tests/
+  tests_glob: "TODO_BACKEND_ROOT/tests/test_*.py"
+  entrypoint: TODO_BACKEND_ROOT/main.py
+  generated_files_csv: "TODO_LIST_OF_GENERATED_FILES"
+
+  db_query_patterns: "TODO_QUERY_API_CALL_NAMES"
+  commit_call: "TODO_SESSION_COMMIT_CALL"
+  commit_exception: "TODO_OR_DELETE_THIS_LINE"
+  forbidden_sort_pattern: "TODO_DYNAMIC_SORT_ANTIPATTERN"
+
+  error_contract:
+    name: TODO_ERROR_TYPE_NAME
+    shape: 'TODO_ERROR_PAYLOAD_SHAPE'
+    location: "TODO_PATH_TO_ERROR_DEF"
+
+  soft_delete:
+    mixin: TODO_OR_REMOVE_IF_NOT_USED
+    column: deleted_at
+    live_filter: "TODO_FILTER_EXPR"
+
+  framework_version_idioms_md: |
+    (none) — or list framework-version-specific anti-patterns.
+
+  layer_rules_md: |
+    (TODO — describe your layer / module rules.)
+
+  async_pitfalls_md: |
+    (TODO — list blocking calls that must not appear in async paths.)
+
+# -----------------------------------------------------------------------------
+frontend:
+  framework: TODO_FRAMEWORK         # Next.js, Remix, Nuxt, SvelteKit
+  language: typescript
+  test_cmd: "TODO_TEST_CMD"
+  dev_url: "http://localhost:3000"
+  stack_up_cmd: "TODO_STACK_UP_CMD"
+
+  root: TODO_FRONTEND_ROOT
+  app_dir: TODO_FRONTEND_ROOT/src/
+  components_dir: TODO_FRONTEND_ROOT/src/components
+  feature_module_path: "TODO_FEATURE_LAYOUT"
+  hooks_pattern_path: "TODO_HOOKS_LAYOUT"
+  wireframe_dir: TODO_OR_REMOVE_IF_NONE
+
+  locales: ["en"]
+  locales_csv: "en"
+  i18n_hook: useTranslations
+  i18n_call: 't()'
+  i18n_call_regex: 't\\("([^"]+)"\\)'
+  locale_files_md: |
+    - `TODO_FRONTEND_ROOT/src/messages/en.json`
+
+  ui_library: TODO_UI_LIB           # shadcn, mui, antd, chakra, plain-tailwind
+
+  proxy_helper: TODO_HELPER_NAMES
+  proxy_helper_path: TODO_HELPER_IMPORT_PATH
+  proxy_exceptions_md: |
+    (none)
+
+  source_extensions_csv: ".tsx,.ts"
+  generated_files_csv: "TODO_LIST_OF_GENERATED_FE_FILES"
+  test_files_note: ""
+
+  browser_mcp: chrome_devtools
+  browser_mcp_tools: >-
+    mcp__chrome_devtools__new_page, mcp__chrome_devtools__navigate_page
+
+  review_exemptions_md: |
+    (none)
+
+# -----------------------------------------------------------------------------
+database:
+  engine: TODO                      # postgres, mysql, sqlite, mongodb
+  migrations:
+    tool: TODO                      # alembic, prisma, knex, flyway, django-migrate
+    versions_dir: TODO_VERSIONS_DIR
+    cmd_new: 'TODO_NEW_MIGRATION_CMD'
+    cmd_up: "TODO_APPLY_CMD"
+    cmd_down: "TODO_REVERT_CMD"
+    cmd_current: "TODO_SHOW_CURRENT_CMD"
+    cmd_sql: "TODO_PREVIEW_SQL_CMD"
+
+  soft_delete:
+    partial_unique_clause_code: 'TODO_OR_REMOVE_IF_NOT_USED'
+
+  rls:
+    file: TODO_OR_REMOVE_IF_NOT_USED
+
+  vendor_owned_schemas_md: |
+    (none) — or list schemas like `auth.*` to never touch.
+
+# -----------------------------------------------------------------------------
+llm:
+  enabled: false                    # set true to activate LLM checks
+  provider: ""
+  register_path_list: ""
+  prompt_template_location: ""
+  slow_log_ms: 15000
+
+conventions:
+  idempotency:
+    helper: "TODO_OR_REMOVE_IF_NOT_USED"
+    location: "TODO_PATH"
+
+performance:
+  baseline_doc: TODO_OR_REMOVE
+  cache_layer_helpers: "TODO_OR_REMOVE"
+  tier_table_md: |
+    | Tier | Threshold | Pattern |
+    |------|-----------|---------|
+    | A — Heavy / 3rd-party | ≤ 5,000 ms | External API |
+    | B — DB Complex | ≤ 500 ms | Joins, complex pagination |
+    | C — DB Simple | ≤ 150 ms | Simple CRUD |
+    | D — Lightweight | ≤ 50 ms | Cache hits, health |
+
+security:
+  trigger_paths_md: |
+    - TODO — list paths that should trigger a security review
+  pii_fields_csv: "email, phone, address, payment"
+  pii_log_keywords_csv: "`email`, `password`, `phone`, `name`, `address`, `token`, `cookie`"
+  cookie_flags_required_csv: "HttpOnly + SameSite=Strict"
+  cookie_prod_extra: ", and in production `Secure`"
+  auth_guard_helpers: "TODO_AUTH_GUARD_NAME"
+  pii_storage_pattern_md: |
+    (none) — or describe your PII storage convention.
+
+cross_cutting_invariants_md: |
+  (TODO — invariants used by tech-lead. e.g. soft-delete filter, error shape,
+   i18n locales, migration tool, idempotency, performance tiers.)
+
+design_docs_list: |
+  (TODO — list paths to important design docs the tech-lead should consider.)
+
+phased_plan_template_md: |
+  #### Phase 1 — Schema (if applicable)
+  #### Phase 2 — DTOs / Types
+  #### Phase 3 — Repo / Data Access
+  #### Phase 4 — Service / Business Logic
+  #### Phase 5 — Router / Controller
+  #### Phase 6 — Tests
+  #### Phase 7 — Frontend (if applicable)
+
+llm_specific_planning_md: |
+  (none) — or list LLM-specific planning checks.
+
+qa_lead:
+  frontend_tests_clause: ""
+
+# Optional per-agent extra rules. Use "(none)" for empty.
+project_rules:
+  backend_reviewer: { critical_md: "(none)", warning_md: "(none)" }
+  frontend_reviewer: { critical_md: "(none)", warning_md: "(none)" }
+  dba: { lessons_md: "(none)", critical_md: "(none)", warning_md: "(none)" }
+  qa_engineer: { p0_md: "(none)" }
+  qa_lead: { smoke_checks_md: "(none)" }
+  perf_engineer: { rules_md: "(none)" }
+  security_engineer: { rules_md: "(none)" }
+
+# -----------------------------------------------------------------------------
+decision_matrix:
+  base:
+    - name: trivial
+      when: { loc_max: 20 }
+      agents: []
+    - name: bug-fix-be
+      when: { loc_max: 100, stacks: ["backend"], schema_change: false }
+      agents: ["backend-reviewer"]
+    - name: bug-fix-fe
+      when: { loc_max: 100, stacks: ["frontend"] }
+      agents: ["frontend-reviewer"]
+    - name: new-endpoint
+      when: { loc_max: 500, stacks: ["backend"], new_route: true }
+      agents: ["qa-engineer", "backend-reviewer", "perf-engineer"]
+    - name: schema-change
+      when: { stacks: ["backend"], schema_change: true }
+      agents: ["dba", "qa-engineer", "backend-reviewer", "perf-engineer"]
+    - name: default-fullstack
+      when: { loc_max: 999999 }
+      agents: ["tech-lead", "qa-engineer", "backend-reviewer", "frontend-reviewer", "qa-lead"]
+
+  add_if:
+    - when: { stacks: ["frontend"] }
+      agents_add: ["ui-smoke-engineer"]
+    - when:
+        path_globs: ["**/auth*", "**/jwt*"]
+        keywords: ["password", "token", "secret", "api_key"]
+      agents_add: ["security-engineer"]
+
+# -----------------------------------------------------------------------------
+orchestrator:
+  retry_budget:
+    block_max: 3
+    request_changes_max: 5
+  spawn_mode: subprocess
+  claude_cmd: claude
+  state_file_pattern: docs/specs/{mp_id}/agent-pow/_state.json
+  final_human_gate: "manual QA + merge"

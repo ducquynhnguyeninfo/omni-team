@@ -1,0 +1,259 @@
+# Example manifest: Next.js 15 (full-stack) + Prisma + Postgres
+# Use case: single Next.js repo where API routes ARE the backend.
+#
+# Differences vs Centvra:
+# - "Backend" = Next.js route handlers; no separate FastAPI service
+# - Prisma instead of Alembic
+# - tRPC or REST? — example uses REST route handlers
+# - Single locale (no FR/VI)
+
+project:
+  name: Example Next.js Prisma App
+  short_name: example-nextjs
+  description: |
+    Single Next.js 15 repo: pages + API routes + Prisma + Postgres.
+
+work_unit_label: PR
+work_unit_example_id: "PR-101"
+spec_root: docs/prs/
+artifact_dir: docs/prs/{mp_id}/agent-pow
+post_qa_lead_gate_label: "merge to main"
+
+models:
+  tech_lead: opus
+  backend_reviewer: sonnet
+  frontend_reviewer: sonnet
+  dba: sonnet
+  qa_engineer: sonnet
+  qa_lead: opus
+  perf_engineer: sonnet
+  security_engineer: sonnet
+  ui_smoke_engineer: sonnet
+
+quality_limits:
+  file_lines: 400
+  function_lines: 80
+  function_params: 6
+  nesting_depth: 4
+
+backend:
+  framework: Next.js Route Handlers
+  language: typescript
+  test_cmd: "pnpm typecheck && pnpm lint && pnpm test"
+  dev_url: "http://localhost:3000"
+  dev_port: 3000
+  health_url: "http://localhost:3000/api/health"
+
+  root: .
+  app_dir: src/
+  models_dir: prisma/schema.prisma
+  schemas_dir: src/lib/validation/
+  repos_dir: src/server/repos/
+  services_dir: src/server/services/
+  routers_dir: src/app/api/
+  tests_dir: src/__tests__/
+  tests_glob: "src/__tests__/**/*.test.ts"
+  entrypoint: src/middleware.ts
+  generated_files_csv: "src/app/.next/, prisma/migrations/, generated/prisma-client/"
+
+  db_query_patterns: "prisma.<model>.findMany, .findUnique, .create, .update, .delete"
+  commit_call: "prisma.$transaction"
+  commit_exception: ""
+  forbidden_sort_pattern: "prisma.<model>.findMany({ orderBy: { [clientField]: ... } })"
+
+  error_contract:
+    name: ApiError envelope
+    shape: '{ "code": "...", "message": "..." }'
+    location: "src/lib/api-error.ts"
+
+  soft_delete:
+    mixin: deletedAt column convention
+    column: deletedAt
+    live_filter: "where: { deletedAt: null }"
+
+  framework_version_idioms_md: |
+    App Router idioms (Next.js 13+): `route.ts` handlers return `NextResponse.json(...)`;
+    `cookies()`/`headers()` from `next/headers`. Never import client-only code into route handlers.
+
+  layer_rules_md: |
+    - Route handler → Service → Repo → Prisma.
+    - Route handlers: parse + validate input via Zod, call service, format response.
+    - Services: orchestrate Prisma transactions; no Request/Response objects.
+    - Repos: thin wrappers over Prisma; no business logic.
+
+  async_pitfalls_md: |
+    Avoid `prisma.$connect()` in hot paths. Avoid sync file I/O (`fs.readFileSync`) in
+    handlers. Use `fs/promises`.
+
+frontend:
+  framework: Next.js 15
+  language: typescript
+  test_cmd: "pnpm typecheck && pnpm lint"
+  dev_url: "http://localhost:3000"
+  stack_up_cmd: "pnpm dev"
+
+  root: .
+  app_dir: src/
+  components_dir: src/components
+  feature_module_path: "src/lib/<feature>/"
+  hooks_pattern_path: "src/components/<feature>/hooks/use-*.ts"
+  wireframe_dir: ""             # no wireframe convention
+
+  locales: ["en"]
+  locales_csv: "en"
+  i18n_hook: useTranslations
+  i18n_call: 't()'
+  i18n_call_regex: 't\\("([^"]+)"\\)'
+  locale_files_md: |
+    - `src/messages/en.json`
+
+  ui_library: shadcn
+  proxy_helper: "fetch (same-origin, no proxy needed)"
+  proxy_helper_path: "global"
+  proxy_exceptions_md: |
+    No cross-origin backend; all API calls are same-origin to `/api/*`.
+
+  source_extensions_csv: ".tsx,.ts"
+  generated_files_csv: "next-env.d.ts, .next/, tsconfig.tsbuildinfo"
+  test_files_note: "(component tests via Vitest + Testing Library)"
+
+  browser_mcp: chrome_devtools
+  browser_mcp_tools: >-
+    mcp__chrome_devtools__new_page, mcp__chrome_devtools__navigate_page,
+    mcp__chrome_devtools__take_snapshot, mcp__chrome_devtools__take_screenshot,
+    mcp__chrome_devtools__click, mcp__chrome_devtools__fill,
+    mcp__chrome_devtools__wait_for, mcp__chrome_devtools__list_console_messages
+
+  review_exemptions_md: "(none)"
+
+database:
+  engine: postgres
+  migrations:
+    tool: prisma-migrate
+    versions_dir: prisma/migrations/
+    cmd_new: 'pnpm prisma migrate dev --name "..."'
+    cmd_up: "pnpm prisma migrate deploy"
+    cmd_down: "pnpm prisma migrate resolve --rolled-back <migration>"
+    cmd_current: "pnpm prisma migrate status"
+    cmd_sql: "pnpm prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script"
+
+  soft_delete:
+    partial_unique_clause_code: '@@unique([code], where: { deletedAt: null }) -- raw SQL via migration'
+
+  rls:
+    file: ""
+
+  vendor_owned_schemas_md: |
+    (none) — single schema.
+
+llm:
+  enabled: false
+  provider: ""
+  register_path_list: ""
+  prompt_template_location: ""
+  slow_log_ms: 5000
+
+conventions:
+  idempotency:
+    helper: "withIdempotencyKey() in src/lib/idempotency.ts"
+    location: src/lib/idempotency.ts
+
+performance:
+  baseline_doc: docs/PERF.md
+  cache_layer_helpers: "unstable_cache from next/cache"
+  tier_table_md: |
+    | Tier | Threshold | Pattern |
+    |------|-----------|---------|
+    | A — External | ≤ 5,000 ms | 3rd-party API |
+    | B — DB Complex | ≤ 500 ms | Joins, aggregations |
+    | C — DB Simple | ≤ 150 ms | Simple Prisma CRUD |
+    | D — Cache hit | ≤ 50 ms | unstable_cache |
+
+security:
+  trigger_paths_md: |
+    - `src/app/api/auth/**`
+    - `src/lib/auth/**`
+    - `src/middleware.ts`
+  pii_fields_csv: "email, phone, address, payment"
+  pii_log_keywords_csv: "`email`, `password`, `phone`, `token`, `session`, `cookie`"
+  cookie_flags_required_csv: "HttpOnly + SameSite=Lax"
+  cookie_prod_extra: ", and in production `Secure`"
+  auth_guard_helpers: "`auth()` from NextAuth or custom `getCurrentUser()`"
+  pii_storage_pattern_md: |
+    Use Prisma field encryption middleware for sensitive columns.
+
+cross_cutting_invariants_md: |
+  - **Zod validation** at every route handler boundary.
+  - **No `any` types** anywhere; use `unknown` + narrowing.
+  - **Prisma transactions** for multi-row mutations.
+  - **Same-origin** API calls only; no `localhost:3000` hardcodes in components.
+
+design_docs_list: |
+  - `docs/ARCHITECTURE.md`
+  - `prisma/schema.prisma` — schema is the source of truth.
+
+phased_plan_template_md: |
+  #### Phase 1 — Prisma schema + migration
+  #### Phase 2 — Zod validation schemas
+  #### Phase 3 — Repo (Prisma wrapper)
+  #### Phase 4 — Service
+  #### Phase 5 — Route handler (src/app/api/...)
+  #### Phase 6 — Server / Client component
+  #### Phase 7 — Tests (handler + component)
+
+llm_specific_planning_md: "(none)"
+
+qa_lead:
+  frontend_tests_clause: " (Vitest + Testing Library for components)"
+
+project_rules:
+  backend_reviewer:
+    critical_md: |
+      - Route handler must `return NextResponse.json(...)` — never raw `Response` with
+        manually-stringified JSON.
+    warning_md: "(none)"
+  frontend_reviewer: { critical_md: "(none)", warning_md: "(none)" }
+  dba:
+    lessons_md: |
+      Prisma migrations are forward-only by convention; rollback via `migrate resolve`.
+    critical_md: "(none)"
+    warning_md: "(none)"
+  qa_engineer: { p0_md: "(none)" }
+  qa_lead: { smoke_checks_md: "(none)" }
+  perf_engineer: { rules_md: "(none)" }
+  security_engineer: { rules_md: "(none)" }
+
+decision_matrix:
+  base:
+    - name: trivial
+      when: { loc_max: 20 }
+      agents: []
+    - name: bug-fix
+      when: { loc_max: 100 }
+      agents: ["backend-reviewer", "frontend-reviewer"]
+    - name: new-route
+      when: { loc_max: 500, new_route: true }
+      agents: ["qa-engineer", "backend-reviewer", "perf-engineer"]
+    - name: schema-change
+      when: { schema_change: true }
+      agents: ["dba", "qa-engineer", "backend-reviewer", "perf-engineer"]
+    - name: default
+      when: { loc_max: 999999 }
+      agents: ["tech-lead", "qa-engineer", "backend-reviewer", "frontend-reviewer", "qa-lead"]
+
+  add_if:
+    - when: { stacks: ["frontend"] }
+      agents_add: ["ui-smoke-engineer"]
+    - when:
+        path_globs: ["src/app/api/auth/**", "src/middleware.ts", "src/lib/auth/**"]
+        keywords: ["password", "token", "secret", "session"]
+      agents_add: ["security-engineer"]
+
+orchestrator:
+  retry_budget:
+    block_max: 3
+    request_changes_max: 5
+  spawn_mode: subprocess
+  claude_cmd: claude
+  state_file_pattern: docs/prs/{mp_id}/agent-pow/_state.json
+  final_human_gate: "merge to main"
