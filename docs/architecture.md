@@ -1,6 +1,6 @@
 # Architecture
 
-omni-team has two orthogonal pieces: a **template/manifest renderer** (`bootstrap.py`) and an **orchestrator state machine** (`orchestrator.py`). They share a `lib/` core but can be used independently.
+omni-team has two orthogonal pieces: a **template/manifest renderer** ([`.claude/bootstrap.py`](../.claude/bootstrap.py)) and an **orchestrator state machine** ([`.claude/orchestrator.py`](../.claude/orchestrator.py)). They share a [`.claude/lib/`](../.claude/lib/) core but can be used independently.
 
 ## 3-layer model
 
@@ -8,27 +8,28 @@ Every agent prompt mixes three concerns. omni-team separates them so the same ro
 
 | Layer | What it captures | Where it lives | Edit when |
 |---|---|---|---|
-| **1 — Role** | "You are the Senior BE Engineer doing peer review." | `templates/*.md` | Adding/removing an agent role |
-| **2 — Process** | "Identify scope → apply rules → emit verdict block." | `templates/*.md` | Changing the review workflow |
-| **3 — Project conventions** | "Error shape is `LeanApiError`. Soft-delete via `deleted_at`." | `manifests/<project>.yaml` | Onboarding a new project, or facts changed |
+| **1 — Role** | "You are the Senior BE Engineer doing peer review." | [`.claude/templates/*.md`](../.claude/templates/) | Adding/removing an agent role |
+| **2 — Process** | "Identify scope → apply rules → emit verdict block." | [`.claude/templates/*.md`](../.claude/templates/) | Changing the review workflow |
+| **3 — Project conventions** | "Error shape is `LeanApiError`. Soft-delete via `deleted_at`." | [`.claude/manifests/<project>.yaml`](../.claude/manifests/) | Onboarding a new project, or facts changed |
 
-Templates reference Layer-3 keys with `{{dotted.path}}`. At bootstrap time `bootstrap.py` reads the manifest, substitutes every placeholder, and writes the resolved agent prompt into the host project's `.claude/agents/`. See [manifest.md](manifest.md) for the placeholder syntax.
+Templates reference Layer-3 keys with `{{dotted.path}}`. At bootstrap time `.claude/bootstrap.py` reads the manifest, substitutes every placeholder, and writes the resolved agent prompt into `.claude/agents/` — exactly where Claude Code expects to load agents from. See [manifest.md](manifest.md) for the placeholder syntax.
 
 ## Bootstrap flow
 
 ```
-manifests/<project>.yaml          templates/<agent>.md
-        │                                  │
-        ▼                                  ▼
-   lib/manifest.py  ──────────────►  lib/render.py
-        (load + dotted lookup)         ({{key}} → value, missing-key report)
-                                            │
-                                            ▼
-                              <host-project>/.claude/agents/<agent>.md
+.claude/manifests/<project>.yaml      .claude/templates/<agent>.md
+        │                                       │
+        ▼                                       ▼
+   .claude/lib/manifest.py  ──────────►   .claude/lib/render.py
+        (load + dotted lookup)              ({{key}} → value, missing-key report)
+                                                 │
+                                                 ▼
+                                       .claude/agents/<agent>.md
+                                       (auto-loaded by Claude Code)
 ```
 
 Failure modes:
-- Missing key in manifest → `bootstrap.py` exits non-zero, lists every unresolved `{{path}}`.
+- Missing key in manifest → `.claude/bootstrap.py` exits non-zero, lists every unresolved `{{path}}`.
 - Manifest YAML invalid → fail fast with line number.
 - Output directory not writable → fail fast.
 
@@ -48,7 +49,7 @@ classify  →  review (gates loop)  →  ready_for_human  →  HUMAN GATE
 - `run-gate <agent>` force-runs a single named gate (bypasses classification).
 - `status` pretty-prints the current `_state.json`.
 
-Verdict regex (in `lib/runner.py`) is fixed for now — see [critical-rules.md](critical-rules.md) §4.
+Verdict regex (in [`.claude/lib/runner.py`](../.claude/lib/runner.py)) is fixed for now — see [critical-rules.md](critical-rules.md) §4.
 
 ## State file
 
@@ -59,7 +60,7 @@ Verdict regex (in `lib/runner.py`) is fixed for now — see [critical-rules.md](
 - Pointer to verbatim agent output file
 - Terminal state (`ready_for_human` or `halted`)
 
-Reset with `--fresh`. Inspect with `orchestrator.py status`.
+Reset with `--fresh`. Inspect with `python .claude/orchestrator.py status`.
 
 ## Why sequential gates
 
