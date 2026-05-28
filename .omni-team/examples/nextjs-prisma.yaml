@@ -1,7 +1,7 @@
 # Example manifest: Next.js 15 (full-stack) + Prisma + Postgres
 # Use case: single Next.js repo where API routes ARE the backend.
 #
-# Differences vs Centvra:
+# Differences vs sample project:
 # - "Backend" = Next.js route handlers; no separate FastAPI service
 # - Prisma instead of Alembic
 # - tRPC or REST? — example uses REST route handlers
