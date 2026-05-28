@@ -209,6 +209,50 @@ project_rules:
   perf_engineer: { rules_md: "(none)" }
   security_engineer: { rules_md: "(none)" }
 
+# =============================================================================
+# Claude Code configuration
+# =============================================================================
+claude_code:
+  enabled_mcps:
+    - chrome_devtools
+    # - TODO_CUSTOM_MCP_NAME
+
+  post_tool_use_hooks_md: |
+    (none) — or list file path matchers and validation rules.
+    Example:
+      - matcher: "**/alembic/versions/*.py"
+        reason: "Editing applied migrations is forbidden. Create a NEW migration via /migrate-new."
+      - matcher: "**/generated/*.py"
+        reason: "This file is auto-generated. Edit the generator instead."
+
+  stop_hook_reminder: "Reminder: run tests before declaring done (/test-be or /test-fe)"
+
+  permissions_allow_list: |
+    (none) — or list bash permission patterns for CI/automation.
+    Examples:
+      - "Bash(ls:*)"
+      - "Bash(pytest:*)"
+      - "Bash(ruff check:*)"
+
+# =============================================================================
+# Custom commands for Claude Code
+# =============================================================================
+commands:
+  test_backend:
+    description: "Run backend quality gate — linter + formatter + tests"
+    script: |
+      cd {{backend.root}} && {{backend.test_cmd}}
+
+  test_frontend:
+    description: "Run frontend quality gate — linter + formatter + tests"
+    script: |
+      cd {{frontend.root}} && {{frontend.test_cmd}}
+
+  migrate_new:
+    description: "Create a new database migration"
+    script: |
+      cd {{backend.root}} && {{database.migrations.cmd_new}}
+
 # -----------------------------------------------------------------------------
 decision_matrix:
   base:

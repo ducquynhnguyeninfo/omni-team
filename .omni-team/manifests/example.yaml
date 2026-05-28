@@ -444,3 +444,52 @@ orchestrator:
 
   # Final human gate (orchestrator stops here, never automated)
   final_human_gate: "Codex crosscheck"
+
+# =============================================================================
+# Claude Code configuration
+# =============================================================================
+claude_code:
+  enabled_mcps:
+    - chrome_devtools
+    # - custom_mcp_for_this_project
+
+  post_tool_use_hooks_md: |
+    - path_matcher: "example-backend/alembic/versions/*.py"
+      reason: "Editing applied migrations is forbidden. Create a NEW migration via /migrate-new."
+    - path_matcher: "example-backend/app/models/_auth_reflected.py"
+      reason: "This file is auto-generated from the database schema. Edit the DB schema instead."
+
+  stop_hook_reminder: "Reminder: run /test-be (backend) or /test-fe (frontend) before declaring done."
+
+  permissions_allow_list: |
+    Bash(ls:*), Bash(rg:*), Bash(ruff check:*), Bash(ruff format --check:*),
+    Bash(pytest:*), Bash(pnpm test:*), Bash(make migrate-current)
+
+# =============================================================================
+# Custom commands for Claude Code
+# =============================================================================
+commands:
+  test_backend:
+    description: "Run backend quality gate — ruff lint + format check + pytest"
+    script: |
+      cd example-backend && source .venv/bin/activate && ruff check . && ruff format --check . && pytest -q
+
+  test_frontend:
+    description: "Run frontend quality gate — pnpm lint + typecheck + tests"
+    script: |
+      cd example-frontend && pnpm lint && pnpm typecheck && pnpm test
+
+  migrate_new:
+    description: "Create a new database migration"
+    script: |
+      cd example-backend && source .venv/bin/activate && alembic revision --autogenerate -m "$ARGUMENTS"
+
+  migrate_current:
+    description: "Show the current database migration version"
+    script: |
+      cd example-backend && source .venv/bin/activate && alembic current
+
+  stack_up:
+    description: "Start the full dev stack (backend + frontend + postgres)"
+    script: |
+      docker compose -f infra-dev/docker-compose.yaml up -d && echo "Stack started. Backend: http://localhost:8000, Frontend: http://localhost:3000"

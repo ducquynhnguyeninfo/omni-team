@@ -45,24 +45,39 @@ pip install -r requirements.txt
 cp .omni-team/manifests/_starter.yaml .omni-team/manifests/myproject.yaml
 $EDITOR .omni-team/manifests/myproject.yaml
 
-# 2. Render the agents (writes to .claude/agents/)
+# 2. Render agents, settings, and commands (writes to .claude/)
 python .omni-team/bootstrap.py --manifest .omni-team/manifests/myproject.yaml
 
-# 3. See which gates would run for the current branch's diff
+# 3. (Optional) See which gates would run for the current branch's diff
 python .omni-team/orchestrator.py classify \
     --manifest .omni-team/manifests/myproject.yaml \
     --mp WORK-01 --base origin/main
 
-# 4. Run the full pipeline
+# 4. Run the full pipeline (in CI or locally)
 python .omni-team/orchestrator.py run \
     --manifest .omni-team/manifests/myproject.yaml \
     --mp WORK-01 --base origin/main
 
-# 5. Inspect state any time
+# 5. (Optional) Inspect state any time
 python .omni-team/orchestrator.py status \
     --manifest .omni-team/manifests/myproject.yaml \
     --mp WORK-01
 ```
+
+### What bootstrap.py renders
+
+After step 2, you'll have a complete Claude Code workspace:
+
+```
+.claude/
+├── agents/              ← 9 agent prompts (tech-lead, backend-reviewer, etc.)
+├── commands/            ← /test-be, /migrate-new, /stack-up, etc.
+└── settings.json        ← Claude Code configuration (MCPs, hooks, permissions)
+```
+
+The agents are universal (from `templates/`). The commands and settings are templated
+with placeholders from your manifest—edit `myproject.yaml` to customize MCP servers,
+validation hooks, and command scripts.
 
 ---
 
@@ -104,6 +119,8 @@ The manifest is a single YAML file with these top-level sections (see
 | `security` | Trigger paths, PII fields, cookie flags |
 | `cross_cutting_invariants_md` | Universal rules surfaced by tech-lead |
 | `project_rules` | Per-agent extra rules (use `(none)` if empty) |
+| `claude_code` | Enabled MCPs, file validation hooks, permissions, stop reminder |
+| `commands` | Custom CLI commands (test-be, migrate-new, stack-up, etc.) |
 | `decision_matrix` | Base rules + add_if overlays (data, not code) |
 | `orchestrator` | Retry budgets, spawn mode, state file, human gate |
 
@@ -119,6 +136,58 @@ Templates use Mustache-style placeholders:
 
 Missing keys are NOT silent — `bootstrap.py` reports them. If a key is
 intentionally empty, set it to the literal string `(none)`.
+
+---
+
+## Configuring Claude Code (MCPs, hooks, commands)
+
+The `claude_code` section in your manifest controls `.claude/settings.json` and `.claude/commands/`:
+
+### Enable MCPs
+
+```yaml
+claude_code:
+  enabled_mcps:
+    - chrome_devtools
+    - custom_mcp_for_your_project
+```
+
+### File validation hooks
+
+```yaml
+  post_tool_use_hooks_md: |
+    - path_matcher: "migrations/versions/*.py"
+      reason: "Applied migrations are immutable. Create a NEW migration."
+    - path_matcher: "**/generated/*.ts"
+      reason: "Auto-generated file. Edit the generator instead."
+```
+
+### Stop hook reminder
+
+```yaml
+  stop_hook_reminder: "Run tests before declaring done: /test-be or /test-fe"
+```
+
+### Permission allow-list
+
+```yaml
+  permissions_allow_list: |
+    Bash(ls:*), Bash(rg:*), Bash(pytest:*), Bash(ruff:*), Bash(pnpm:*)
+```
+
+### Custom commands
+
+Define commands in the `commands:` section. Each command is templated from `.omni-team/templates/commands/`:
+
+```yaml
+commands:
+  test_backend:
+    description: "Run backend tests"
+    script: |
+      cd {{backend.root}} && {{backend.test_cmd}}
+```
+
+Bootstrap renders this to `.claude/commands/test-backend.md`, making `/test-backend` available in Claude Code.
 
 ---
 
@@ -238,6 +307,8 @@ giving CI a natural gate.
 | File | Purpose |
 |---|---|
 | `.omni-team/templates/<agent>.md` | Universal role + process prompt with `{{placeholders}}` |
+| `.omni-team/templates/settings.json.jinja2` | Claude Code config template (MCPs, hooks, permissions) |
+| `.omni-team/templates/commands/*.md` | Command templates (test-be, migrate-new, stack-up, etc.) |
 | `.omni-team/manifests/example.yaml` | Fully-populated reference manifest |
 | `.omni-team/manifests/_starter.yaml` | Copy-paste skeleton with `TODO_*` markers |
 | `.omni-team/examples/*.yaml` | Reference manifests for other stacks |
@@ -246,7 +317,7 @@ giving CI a natural gate.
 | `.omni-team/lib/decision.py` | Decision matrix evaluator |
 | `.omni-team/lib/state.py` | `RunState` / `GateState` + JSON persistence |
 | `.omni-team/lib/runner.py` | `claude -p` subprocess + verdict classifier |
-| `.omni-team/bootstrap.py` | Render templates → `.claude/agents/` |
+| `.omni-team/bootstrap.py` | Render templates → `.claude/agents/`, `.claude/commands/`, `.claude/settings.json` |
 | `.omni-team/orchestrator.py` | Classify, run, run-gate, status |
 
 ---
