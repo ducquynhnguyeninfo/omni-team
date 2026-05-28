@@ -2,7 +2,7 @@
 
 The manifest is **Layer 3** in the [3-layer model](architecture.md) — project-specific facts injected into Layer 1+2 templates at bootstrap time.
 
-Canonical reference: [`.claude/manifests/centvra.yaml`](../.claude/manifests/centvra.yaml) (fully populated). Schema spec: [`.claude/manifests/_starter.yaml`](../.claude/manifests/_starter.yaml). Other stacks: [`.claude/examples/`](../.claude/examples/).
+Canonical reference: [`.claude/manifests/example.yaml`](../.claude/manifests/example.yaml) (fully populated). Schema spec: [`.claude/manifests/_starter.yaml`](../.claude/manifests/_starter.yaml). Other stacks: [`.claude/examples/`](../.claude/examples/).
 
 ## Top-level sections
 
@@ -48,7 +48,7 @@ Rules:
 Breaking change. Procedure:
 
 1. Update [`.claude/manifests/_starter.yaml`](../.claude/manifests/_starter.yaml) — this is the schema spec, every new key goes here first.
-2. Update [`.claude/manifests/centvra.yaml`](../.claude/manifests/centvra.yaml) — the canonical reference must stay populated.
+2. Update [`.claude/manifests/example.yaml`](../.claude/manifests/example.yaml) — the canonical reference must stay populated.
 3. Update every file under [`.claude/examples/`](../.claude/examples/).
 4. Update the section table above.
 5. Bump anything that documents the manifest schema externally.

@@ -32,7 +32,7 @@ omni-team/                          THE baseline automated-agent coding repo
 │   │
 │   ├── manifests/                  Layer 3 (Project conventions) — data
 │   │   ├── _starter.yaml           Copy-paste skeleton; schema spec for new projects
-│   │   └── centvra.yaml            Reference: fully-populated Centvra manifest
+│   │   └── example.yaml            Reference: fully-populated example manifest
 │   │
 │   ├── examples/                   Reference manifests for other stacks
 │   │   ├── django-postgres.yaml

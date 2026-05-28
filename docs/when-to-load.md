@@ -32,7 +32,7 @@ Quick triggers → which file holds the answer. The same table is mirrored (shor
 
 Single-file changes don't need a full read-through. Suggested minimum:
 
-- **Editing a single template** — skim [critical-rules.md](critical-rules.md) §1, §6. Render against centvra + one example before declaring done.
+- **Editing a single template** — skim [critical-rules.md](critical-rules.md) §1, §6. Render against example.yaml + one other manifest before declaring done.
 - **Editing a single `.claude/lib/` function** — skim [code-quality.md](code-quality.md). Type-check the public surface.
 - **Editing the README** — no extra reads, but confirm links resolve.
 - **Adding an example manifest** — [manifest.md](manifest.md) + copy [`_starter.yaml`](../.claude/manifests/_starter.yaml).

@@ -12,7 +12,7 @@ Rules that must never be silently relaxed. Each rule names *what* and *why* — 
 
 5. **Never auto-commit / auto-push / auto-merge from `.claude/orchestrator.py`.** The human gate (`ready_for_human` → Codex crosscheck → manual `git commit`) is load-bearing. The framework's whole value proposition is that ship is a human decision.
 
-6. **`.claude/templates/*.md` placeholders are the public contract.** Adding, renaming, or removing a `{{key.path}}` is a breaking change to every existing manifest. If you must change one: (a) update [`.claude/manifests/_starter.yaml`](../.claude/manifests/_starter.yaml) which is the schema spec; (b) update [`.claude/manifests/centvra.yaml`](../.claude/manifests/centvra.yaml) and every file under [`.claude/examples/`](../.claude/examples/); (c) note in [manifest.md](manifest.md).
+6. **`.claude/templates/*.md` placeholders are the public contract.** Adding, renaming, or removing a `{{key.path}}` is a breaking change to every existing manifest. If you must change one: (a) update [`.claude/manifests/_starter.yaml`](../.claude/manifests/_starter.yaml) which is the schema spec; (b) update [`.claude/manifests/example.yaml`](../.claude/manifests/example.yaml) and every file under [`.claude/examples/`](../.claude/examples/); (c) note in [manifest.md](manifest.md).
 
 7. **No secrets in checked-in files.** API keys (`ANTHROPIC_API_KEY`, etc.) flow through environment variables only. Manifests are committed and reviewed in PRs — treat any field there as world-readable.
 

@@ -2,8 +2,8 @@
 
 Before marking any change to omni-team complete:
 
-- [ ] **Templates touched?** Re-render against [`.claude/manifests/centvra.yaml`](../.claude/manifests/centvra.yaml) and at least one file under [`.claude/examples/`](../.claude/examples/). Both must produce sensible output with zero missing-key errors.
-- [ ] **New placeholder added?** Updated [`.claude/manifests/_starter.yaml`](../.claude/manifests/_starter.yaml), [`.claude/manifests/centvra.yaml`](../.claude/manifests/centvra.yaml), and every file under [`.claude/examples/`](../.claude/examples/). See [manifest.md](manifest.md) §adding-a-new-placeholder.
+- [ ] **Templates touched?** Re-render against [`.claude/manifests/example.yaml`](../.claude/manifests/example.yaml) and at least one file under [`.claude/examples/`](../.claude/examples/). Both must produce sensible output with zero missing-key errors.
+- [ ] **New placeholder added?** Updated [`.claude/manifests/_starter.yaml`](../.claude/manifests/_starter.yaml), [`.claude/manifests/example.yaml`](../.claude/manifests/example.yaml), and every file under [`.claude/examples/`](../.claude/examples/). See [manifest.md](manifest.md) §adding-a-new-placeholder.
 - [ ] **`.claude/lib/decision.py` touched?** Added or updated unit coverage for the predicate. Predicates are pure functions — there is no excuse.
 - [ ] **`.claude/lib/runner.py` verdict regex changed?** Smoke-test against a real `claude -p` invocation, not just unit test. Verdict parsing is load-bearing.
 - [ ] **New agent role added?** Followed the procedure in [agents.md](agents.md) §adding-a-new-agent: template + manifest schema entries + this file's checklist updated.
@@ -16,11 +16,11 @@ Before marking any change to omni-team complete:
 ## Smoke test (suggested minimal)
 
 ```bash
-# Renders all templates against the canonical manifest. Must exit 0.
-python .claude/bootstrap.py --manifest .claude/manifests/centvra.yaml --dry-run
+# Renders all templates against the example manifest. Must exit 0.
+python .claude/bootstrap.py --manifest .claude/manifests/example.yaml --dry-run
 
 # Classify against a representative diff. Must print a non-empty agent sequence.
-python .claude/orchestrator.py classify --manifest .claude/manifests/centvra.yaml --mp TEST --base HEAD~1
+python .claude/orchestrator.py classify --manifest .claude/manifests/example.yaml --mp TEST --base HEAD~1
 ```
 
 If `--dry-run` is not implemented yet, run the real render into a scratch directory and diff against the previous output.

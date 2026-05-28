@@ -20,7 +20,7 @@ See [docs/critical-rules.md](docs/critical-rules.md) for the full list. Top-3 in
 | Touching [`.claude/lib/decision.py`](.claude/lib/decision.py) or matrix predicates | [docs/decision-matrix.md](docs/decision-matrix.md) |
 | Touching [`.claude/orchestrator.py`](.claude/orchestrator.py) / state machine / retry budget | [docs/architecture.md](docs/architecture.md) + [docs/workflow.md](docs/workflow.md) |
 | Adding/changing an agent role | [docs/agents.md](docs/agents.md) + [docs/manifest.md](docs/manifest.md) |
-| Onboarding a new project (writing a manifest) | [README.md](README.md) §Quick-start + [docs/manifest.md](docs/manifest.md) + [.claude/examples/](.claude/examples/) |
+| Onboarding a new project (writing a manifest) | [README.md](README.md) §Quick-start + [docs/manifest.md](docs/manifest.md) + [.claude/manifests/example.yaml](.claude/manifests/example.yaml) as reference |
 | Anything before commit | [docs/definition-of-done.md](docs/definition-of-done.md) |
 | Lines/function-size/complexity questions | [docs/code-quality.md](docs/code-quality.md) |
 | "Where does X live?" | [docs/repository-layout.md](docs/repository-layout.md) |

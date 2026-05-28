@@ -1,7 +1,8 @@
 # .omni-team — Portable, Auto-Runnable Review-Gate Team
 
-A port of the Centvra `.claude/agents/` 9-role team into a project-agnostic
-framework. Two improvements over the original:
+A baseline framework for portable, project-agnostic automated-agent code review.
+Extracts the 9-role team concept into templates (universal) and manifests (project-specific).
+Two key properties:
 
 1. **Portable** — agent prompts are templated; project-specific facts live in a
    YAML manifest. Switch projects by swapping the manifest.
@@ -14,7 +15,7 @@ framework. Two improvements over the original:
 .omni-team/
 ├── templates/           ← Layer 1+2: universal role + process (9 agents)
 ├── manifests/
-│   ├── centvra.yaml     ← Layer 3: this project's facts
+│   ├── example.yaml     ← Layer 3: reference project facts
 │   └── _starter.yaml    ← copy-paste skeleton for new projects
 ├── examples/
 │   ├── django-postgres.yaml
@@ -25,44 +26,33 @@ framework. Two improvements over the original:
 └── README.md
 ```
 
-## Quick start (Centvra)
+## Quick start
+
+To use this baseline as your project's starting point or to vendor into existing code:
 
 ```bash
-# 1. Render the agents (writes to .claude/agents/)
-python .omni-team/bootstrap.py
+# 1. Copy the starter manifest and fill in project-specific facts
+cp .claude/manifests/_starter.yaml .claude/manifests/myproject.yaml
+$EDITOR .claude/manifests/myproject.yaml
 
-# 2. See which gates would run for the current branch's diff
-python .omni-team/orchestrator.py classify \
-    --mp MP-A06 --sprint 4 --base origin/main
+# 2. Render the agents (writes to .claude/agents/)
+python .claude/bootstrap.py --manifest .claude/manifests/myproject.yaml
 
-# 3. Run the full pipeline
-python .omni-team/orchestrator.py run \
-    --mp MP-A06 --sprint 4 --base origin/main
+# 3. See which gates would run for the current branch's diff
+python .claude/orchestrator.py classify \
+    --manifest .claude/manifests/myproject.yaml \
+    --mp WORK-01 --base origin/main
 
-# 4. Inspect state any time
-python .omni-team/orchestrator.py status --mp MP-A06 --sprint 4
+# 4. Run the full pipeline
+python .claude/orchestrator.py run \
+    --manifest .claude/manifests/myproject.yaml \
+    --mp WORK-01 --base origin/main
+
+# 5. Inspect state any time
+python .claude/orchestrator.py status \
+    --manifest .claude/manifests/myproject.yaml \
+    --mp WORK-01
 ```
-
-## Quick start (another project)
-
-```bash
-# 1. Copy the starter manifest
-cp .omni-team/manifests/_starter.yaml .omni-team/manifests/myapp.yaml
-
-# 2. Fill every TODO_* in myapp.yaml
-$EDITOR .omni-team/manifests/myapp.yaml
-
-# 3. Render
-python .omni-team/bootstrap.py --manifest .omni-team/manifests/myapp.yaml
-
-# 4. Use orchestrator with the same manifest
-python .omni-team/orchestrator.py run \
-    --manifest .omni-team/manifests/myapp.yaml \
-    --mp PR-101 --base main
-```
-
-See `examples/django-postgres.yaml` and `examples/nextjs-prisma.yaml` for
-filled-in references.
 
 ---
 
@@ -85,7 +75,7 @@ the resolved agent file into `.claude/agents/`.
 ## Manifest reference
 
 The manifest is a single YAML file with these top-level sections (see
-`manifests/centvra.yaml` for a fully-populated example):
+`manifests/example.yaml` for a fully-populated reference):
 
 | Section | Purpose |
 |---|---|
@@ -211,19 +201,19 @@ giving CI a natural gate.
 
 | Aspect | Original `.claude/agents/` | `.omni-team/` |
 |---|---|---|
-| Prompts | Hardcoded for Centvra | Templated + manifest-injected |
-| Decision matrix | Prose in CLAUDE.md | Structured YAML data |
-| Invocation | Main Claude calls `Agent` tool by hand | `orchestrator.py run` (or `claude -p`) |
+| Prompts | Templated (universal role + process) | Templated + manifest-injected |
+| Decision matrix | Data-driven via manifest | Structured YAML data |
+| Invocation | Manual per-agent calls | `orchestrator.py run` (automatic gate selection) |
 | State | Implicit (per-agent markdown only) | Explicit `_state.json` + per-agent markdown |
-| Retry budget | "3 BLOCK → escalate" stated in prose | Enforced numerically + escape log |
+| Retry budget | Manual re-invocation | Enforced numerically + escape log |
 | Human gate | Implicit (Codex crosscheck) | Explicit terminal state `ready_for_human` |
-| Port to new project | Rewrite prompts | Swap manifest + run `bootstrap.py` |
+| Port to new project | Rewrite prompts + logic | Swap manifest + run `bootstrap.py` |
 
 ---
 
 ## Differences vs `agents/.agent/` (the legacy orchestrator)
 
-| Aspect | Legacy `agents/.agent/` | `.omni-team/` |
+| Aspect | Baseline framework | Legacy `agents/.agent/` |
 |---|---|---|
 | Roles | PO / TL / DEV / QC / PM (agile loop) | 9 reviewer gates (no DEV agent) |
 | Autonomy | Loops to "every card Done" | Stops at human gate; no auto-commit |

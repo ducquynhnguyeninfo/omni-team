@@ -32,7 +32,7 @@ The orchestrator picks this set automatically from the diff + the manifest's `de
 3. Add a corresponding entry under `models:`, `project_rules:`, and (if scheduling logic changes) `decision_matrix:` in [`.claude/manifests/_starter.yaml`](../.claude/manifests/_starter.yaml).
 4. Add an `artifact_dir` convention entry (the per-agent file name under `agent-pow/<MP-ID>/`).
 5. Update this file's table.
-6. Test by rendering against [`.claude/manifests/centvra.yaml`](../.claude/manifests/centvra.yaml) and checking the output is sensible.
+6. Test by rendering against [`.claude/manifests/example.yaml`](../.claude/manifests/example.yaml) and checking the output is sensible.
 
 ## Artifact discipline
 
