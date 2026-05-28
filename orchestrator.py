@@ -4,16 +4,16 @@ orchestrator.py — auto-run the omni-team gate pipeline for one work unit.
 
 Usage:
     # Full pipeline against the diff since `main`:
-    python .omni-team/orchestrator.py run --mp MP-A06 --sprint 4
+    python orchestrator.py run --mp MP-A06 --sprint 4
 
     # Classify only (no invocations):
-    python .omni-team/orchestrator.py classify --mp MP-A06 --base main
+    python orchestrator.py classify --mp MP-A06 --base main
 
     # Re-run a single gate:
-    python .omni-team/orchestrator.py run-gate backend-reviewer --mp MP-A06 --sprint 4
+    python orchestrator.py run-gate backend-reviewer --mp MP-A06 --sprint 4
 
     # Dry-run (no Claude calls; synthetic verdicts):
-    python .omni-team/orchestrator.py run --mp MP-A06 --sprint 4 --dry-run
+    python orchestrator.py run --mp MP-A06 --sprint 4 --dry-run
 
 State file:
     Per the manifest's `orchestrator.state_file_pattern`.
@@ -33,7 +33,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-PROJECT_ROOT = ROOT.parent
+PROJECT_ROOT = ROOT
 sys.path.insert(0, str(ROOT))
 
 from lib import manifest as _manifest        # noqa: E402
@@ -41,7 +41,7 @@ from lib.decision import Scope, select_agents  # noqa: E402
 from lib.runner import invoke                  # noqa: E402
 from lib.state import GateState, RunState      # noqa: E402
 
-DEFAULT_MANIFEST = ROOT / "manifests" / "centvra.yaml"
+DEFAULT_MANIFEST = ROOT / "manifests" / "example.yaml"
 ROUTE_DECORATOR_RE = re.compile(r"@(?:app|router)\.(?:get|post|put|patch|delete)\(")
 
 

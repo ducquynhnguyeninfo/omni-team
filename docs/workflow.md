@@ -8,7 +8,7 @@ Every change goes through **Classify → Plan → Execute → Review → Ship**.
 
 1. **Classify**
    - Human + main Claude consult the matrix.
-   - Run `python .claude/orchestrator.py classify --mp <id> --base <ref>` to preview the gate sequence.
+   - Run `python orchestrator.py classify --mp <id> --base <ref>` to preview the gate sequence.
 
 2. **Plan**
    - For non-trivial work units: spawn `tech-lead` first. Returns phased plan.
@@ -19,7 +19,7 @@ Every change goes through **Classify → Plan → Execute → Review → Ship**.
    - Use stack-specific slash commands (defined per host project, not by omni-team).
 
 4. **Review** (gates fire serially — never in parallel; they read disk state)
-   - `python .claude/orchestrator.py run --mp <id> --base <ref>` runs the full sequence.
+   - `python orchestrator.py run --mp <id> --base <ref>` runs the full sequence.
    - Schema touched → `dba`
    - BE code → `qa-engineer` → `backend-reviewer` → `perf-engineer` (if new endpoint) → BE test gate
    - FE code → FE test gate → `frontend-reviewer`
@@ -38,7 +38,7 @@ Three `BLOCK` verdicts on the same scope → halt, append to `_post-ship-escapes
 
 Three `REQUEST_CHANGES` verdicts in a row on the same gate → halt with the same escape log; do not loop. The fix is wrong direction or scope is too large — both need human judgement.
 
-Default budgets in [`.claude/manifests/_starter.yaml`](../.claude/manifests/_starter.yaml) under `orchestrator:`. Tunable per project.
+Default budgets in [`manifests/_starter.yaml`](../manifests/_starter.yaml) under `orchestrator:`. Tunable per project.
 
 ## Decision matrix — quick reference
 

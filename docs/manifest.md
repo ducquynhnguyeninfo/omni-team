@@ -2,7 +2,7 @@
 
 The manifest is **Layer 3** in the [3-layer model](architecture.md) — project-specific facts injected into Layer 1+2 templates at bootstrap time.
 
-Canonical reference: [`.claude/manifests/example.yaml`](../.claude/manifests/example.yaml) (fully populated). Schema spec: [`.claude/manifests/_starter.yaml`](../.claude/manifests/_starter.yaml). Other stacks: [`.claude/examples/`](../.claude/examples/).
+Canonical reference: [`manifests/example.yaml`](../manifests/example.yaml) (fully populated). Schema spec: [`manifests/_starter.yaml`](../manifests/_starter.yaml). Other stacks: [`examples/`](../examples/).
 
 ## Top-level sections
 
@@ -28,7 +28,7 @@ Canonical reference: [`.claude/manifests/example.yaml`](../.claude/manifests/exa
 
 ## Placeholder syntax
 
-Templates use Mustache-style placeholders. `.claude/bootstrap.py` resolves them via dotted-key lookup against the manifest.
+Templates use Mustache-style placeholders. `bootstrap.py` resolves them via dotted-key lookup against the manifest.
 
 ```
 {{backend.error_contract.name}}      ← scalar (string / number)
@@ -38,7 +38,7 @@ Templates use Mustache-style placeholders. `.claude/bootstrap.py` resolves them 
 
 Rules:
 
-- **Missing keys are NOT silent.** `.claude/bootstrap.py` exits non-zero and lists every unresolved path. See [critical-rules.md](critical-rules.md) §3.
+- **Missing keys are NOT silent.** `bootstrap.py` exits non-zero and lists every unresolved path. See [critical-rules.md](critical-rules.md) §3.
 - **Intentionally empty?** Set the key to the literal string `(none)` — this is the contract for "no project-specific extra rules here."
 - **Multi-line values** use YAML block scalars (`|` or `>`). They are inserted verbatim into the rendered prompt — formatting is your responsibility.
 - **Pre-rendered tables** are a convenience: render markdown once in the manifest, reference once in the template.
@@ -47,9 +47,9 @@ Rules:
 
 Breaking change. Procedure:
 
-1. Update [`.claude/manifests/_starter.yaml`](../.claude/manifests/_starter.yaml) — this is the schema spec, every new key goes here first.
-2. Update [`.claude/manifests/example.yaml`](../.claude/manifests/example.yaml) — the canonical reference must stay populated.
-3. Update every file under [`.claude/examples/`](../.claude/examples/).
+1. Update [`manifests/_starter.yaml`](../manifests/_starter.yaml) — this is the schema spec, every new key goes here first.
+2. Update [`manifests/example.yaml`](../manifests/example.yaml) — the canonical reference must stay populated.
+3. Update every file under [`examples/`](../examples/).
 4. Update the section table above.
 5. Bump anything that documents the manifest schema externally.
 
@@ -57,6 +57,6 @@ If you skip step 1–3, existing manifests will fail bootstrap with a missing-ke
 
 ## Validation tips
 
-- `python .claude/bootstrap.py --manifest <file>` and read the missing-key report — fastest way to catch typos.
-- `python .claude/bootstrap.py --manifest <file> --dry-run` (if implemented) prints rendered output without writing.
-- For new projects, copy [`_starter.yaml`](../.claude/manifests/_starter.yaml) verbatim and search for `TODO_` to find every field that must be filled.
+- `python bootstrap.py --manifest <file>` and read the missing-key report — fastest way to catch typos.
+- `python bootstrap.py --manifest <file> --dry-run` (if implemented) prints rendered output without writing.
+- For new projects, copy [`_starter.yaml`](../manifests/_starter.yaml) verbatim and search for `TODO_` to find every field that must be filled.

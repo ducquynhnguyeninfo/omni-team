@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-bootstrap.py — render .omni-team/templates/*.md with a chosen manifest and
+bootstrap.py — render templates/*.md with a chosen manifest and
 write fully-resolved agent files into the target .claude/agents/ directory.
 
 Usage:
-    python .omni-team/bootstrap.py                       # uses manifests/centvra.yaml
-    python .omni-team/bootstrap.py --manifest <path>     # any manifest
-    python .omni-team/bootstrap.py --target <dir>        # override .claude/agents/
-    python .omni-team/bootstrap.py --dry-run             # print plan, don't write
+    python bootstrap.py                       # uses manifests/example.yaml
+    python bootstrap.py --manifest <path>     # any manifest
+    python bootstrap.py --target <dir>        # override .claude/agents/
+    python bootstrap.py --dry-run             # print plan, don't write
 
 The script is idempotent — running it twice produces identical output. To
 remove an agent from the rendered set, delete it from .claude/agents/ AND set
@@ -21,14 +21,14 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-PROJECT_ROOT = ROOT.parent
+PROJECT_ROOT = ROOT
 sys.path.insert(0, str(ROOT))
 
 from lib import manifest as _manifest  # noqa: E402
 from lib import render as _render      # noqa: E402
 
 TEMPLATES_DIR = ROOT / "templates"
-DEFAULT_MANIFEST = ROOT / "manifests" / "centvra.yaml"
+DEFAULT_MANIFEST = ROOT / "manifests" / "example.yaml"
 DEFAULT_TARGET = PROJECT_ROOT / ".claude" / "agents"
 
 AGENT_NAMES = [

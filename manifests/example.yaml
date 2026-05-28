@@ -1,9 +1,9 @@
 # =============================================================================
-# omni-team project manifest — Centvra MVP
+# omni-team project manifest — example / reference
 # =============================================================================
 # This file is the SINGLE source of project-specific facts consumed by
-# .omni-team/bootstrap.py to render the templates in ../templates/ into
-# fully-resolved agent prompts at ../../.claude/agents/.
+# bootstrap.py to render the templates in ../templates/ into fully-resolved
+# agent prompts at ../.claude/agents/.
 #
 # Keys are referenced from templates as {{path.to.key}}. *_md keys hold
 # pre-rendered markdown that gets pasted in verbatim (multi-line OK).

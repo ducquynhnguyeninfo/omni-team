@@ -1,6 +1,6 @@
 # Decision matrix
 
-The decision matrix decides which agents fire for a given diff. **It is data, not code** — lives in [`.claude/manifests/<project>.yaml`](../.claude/manifests/) under `decision_matrix:`, evaluated by [`.claude/lib/decision.py`](../.claude/lib/decision.py). Project-specific routing = edit YAML, not Python. See [critical-rules.md](critical-rules.md) §2.
+The decision matrix decides which agents fire for a given diff. **It is data, not code** — lives in [`manifests/<project>.yaml`](../manifests/) under `decision_matrix:`, evaluated by [`lib/decision.py`](../lib/decision.py). Project-specific routing = edit YAML, not Python. See [critical-rules.md](critical-rules.md) §2.
 
 ## Structure
 
@@ -30,7 +30,7 @@ Evaluation order:
 
 1. Walk `base:` top-to-bottom. First rule whose `when:` matches the diff sets the initial agent list.
 2. Walk `add_if:`. Every rule whose `when:` matches appends its `agents_add:` to the list (de-duplicated).
-3. Order within the final list follows [`.claude/templates/`](../.claude/templates/) declaration order — reviewers run serially in a stable sequence. See [architecture.md](architecture.md) §why-sequential.
+3. Order within the final list follows [`templates/`](../templates/) declaration order — reviewers run serially in a stable sequence. See [architecture.md](architecture.md) §why-sequential.
 
 ## Supported predicates
 
@@ -50,11 +50,11 @@ Stack detection, "new route" detection, and migrations dir are configured under 
 
 ## Adding a new predicate
 
-This is a code change (touches [`.claude/lib/decision.py`](../.claude/lib/decision.py)). Procedure:
+This is a code change (touches [`lib/decision.py`](../lib/decision.py)). Procedure:
 
-1. Add the predicate evaluator in `.claude/lib/decision.py`.
+1. Add the predicate evaluator in `lib/decision.py`.
 2. Add unit coverage — predicates are pure functions, easy to test.
-3. Update the table above + the manifest schema in [`.claude/manifests/_starter.yaml`](../.claude/manifests/_starter.yaml).
+3. Update the table above + the manifest schema in [`manifests/_starter.yaml`](../manifests/_starter.yaml).
 4. Document in [manifest.md](manifest.md).
 
 If you find yourself adding a predicate that's stack-specific ("only matches Django models"), stop — the right move is usually a new manifest field that the existing `path_globs` / `keywords` predicates can match against.
@@ -62,7 +62,7 @@ If you find yourself adding a predicate that's stack-specific ("only matches Dja
 ## Debugging
 
 ```bash
-python .claude/orchestrator.py classify --mp <id> --base origin/main
+python orchestrator.py classify --mp <id> --base origin/main
 ```
 
 Prints the matched `base:` rule, every triggered `add_if:` rule, and the final agent sequence. Use this before `run` whenever you change the matrix.

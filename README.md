@@ -1,4 +1,4 @@
-# .omni-team — Portable, Auto-Runnable Review-Gate Team
+# omni-team — Portable, Auto-Runnable Review-Gate Team
 
 A baseline framework for portable, project-agnostic automated-agent code review.
 Extracts the 9-role team concept into templates (universal) and manifests (project-specific).
@@ -12,7 +12,7 @@ Two key properties:
    crosscheck). No agent ever auto-commits.
 
 ```
-.omni-team/
+omni-team/
 ├── templates/           ← Layer 1+2: universal role + process (9 agents)
 ├── manifests/
 │   ├── example.yaml     ← Layer 3: reference project facts
@@ -23,6 +23,7 @@ Two key properties:
 ├── lib/                 ← manifest, render, decision, state, runner
 ├── bootstrap.py         ← render templates + manifest → .claude/agents/
 ├── orchestrator.py      ← classify → invoke gates → state machine
+├── .claude/agents/      ← OUTPUT of bootstrap.py (auto-loaded by Claude Code)
 └── README.md
 ```
 
@@ -32,25 +33,25 @@ To use this baseline as your project's starting point or to vendor into existing
 
 ```bash
 # 1. Copy the starter manifest and fill in project-specific facts
-cp .claude/manifests/_starter.yaml .claude/manifests/myproject.yaml
-$EDITOR .claude/manifests/myproject.yaml
+cp manifests/_starter.yaml manifests/myproject.yaml
+$EDITOR manifests/myproject.yaml
 
 # 2. Render the agents (writes to .claude/agents/)
-python .claude/bootstrap.py --manifest .claude/manifests/myproject.yaml
+python bootstrap.py --manifest manifests/myproject.yaml
 
 # 3. See which gates would run for the current branch's diff
-python .claude/orchestrator.py classify \
-    --manifest .claude/manifests/myproject.yaml \
+python orchestrator.py classify \
+    --manifest manifests/myproject.yaml \
     --mp WORK-01 --base origin/main
 
 # 4. Run the full pipeline
-python .claude/orchestrator.py run \
-    --manifest .claude/manifests/myproject.yaml \
+python orchestrator.py run \
+    --manifest manifests/myproject.yaml \
     --mp WORK-01 --base origin/main
 
 # 5. Inspect state any time
-python .claude/orchestrator.py status \
-    --manifest .claude/manifests/myproject.yaml \
+python orchestrator.py status \
+    --manifest manifests/myproject.yaml \
     --mp WORK-01
 ```
 
@@ -58,7 +59,7 @@ python .claude/orchestrator.py status \
 
 ## How the 3-layer model works
 
-Every original agent prompt mixed three things. `.omni-team/` splits them:
+Every original agent prompt mixed three things. omni-team splits them:
 
 | Layer | What it captures | Where it lives |
 |---|---|---|
@@ -185,10 +186,10 @@ Flags worth knowing:
   env:
     ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
   run: |
-    python .omni-team/bootstrap.py
-    python .omni-team/orchestrator.py run \
+    python bootstrap.py --manifest manifests/<your>.yaml
+    python orchestrator.py run \
+        --manifest manifests/<your>.yaml \
         --mp "${{ github.event.pull_request.title }}" \
-        --sprint 4 \
         --base "${{ github.base_ref }}"
 ```
 
@@ -197,9 +198,9 @@ giving CI a natural gate.
 
 ---
 
-## Differences vs `.claude/agents/` (the original Centvra team)
+## Differences vs a hand-rolled `.claude/agents/` set
 
-| Aspect | Original `.claude/agents/` | `.omni-team/` |
+| Aspect | Hand-rolled `.claude/agents/` | omni-team |
 |---|---|---|
 | Prompts | Templated (universal role + process) | Templated + manifest-injected |
 | Decision matrix | Data-driven via manifest | Structured YAML data |
@@ -228,7 +229,7 @@ giving CI a natural gate.
 | File | Purpose |
 |---|---|
 | `templates/<agent>.md` | Universal role + process prompt with `{{placeholders}}` |
-| `manifests/centvra.yaml` | Fully-populated Centvra facts |
+| `manifests/example.yaml` | Fully-populated reference manifest |
 | `manifests/_starter.yaml` | Copy-paste skeleton with `TODO_*` markers |
 | `examples/*.yaml` | Reference manifests for other stacks |
 | `lib/manifest.py` | YAML loader + dotted-key lookup |
