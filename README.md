@@ -32,6 +32,10 @@ omni-team/
 To use this baseline as your project's starting point or to vendor into existing code:
 
 ```bash
+# 0. Install dependencies (Python 3.10+; PyYAML is the only runtime dep)
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+
 # 1. Copy the starter manifest and fill in project-specific facts
 cp manifests/_starter.yaml manifests/myproject.yaml
 $EDITOR manifests/myproject.yaml
