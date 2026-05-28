@@ -12,19 +12,24 @@ Two key properties:
    crosscheck). No agent ever auto-commits.
 
 ```
-omni-team/
-├── templates/           ← Layer 1+2: universal role + process (9 agents)
-├── manifests/
-│   ├── example.yaml     ← Layer 3: reference project facts
-│   └── _starter.yaml    ← copy-paste skeleton for new projects
-├── examples/
-│   ├── django-postgres.yaml
-│   └── nextjs-prisma.yaml
-├── lib/                 ← manifest, render, decision, state, runner
-├── bootstrap.py         ← render templates + manifest → .claude/agents/
-├── orchestrator.py      ← classify → invoke gates → state machine
-├── .claude/agents/      ← OUTPUT of bootstrap.py (auto-loaded by Claude Code)
-└── README.md
+omni-team/                       ← repo root
+├── README.md
+├── CLAUDE.md
+├── LICENSE
+├── requirements.txt
+├── .claude/agents/              ← OUTPUT of bootstrap.py (auto-loaded by Claude Code)
+└── .omni-team/                  ← THE framework
+    ├── templates/               ← Layer 1+2: universal role + process (9 agents)
+    ├── manifests/
+    │   ├── example.yaml         ← Layer 3: reference project facts
+    │   └── _starter.yaml        ← copy-paste skeleton for new projects
+    ├── examples/
+    │   ├── django-postgres.yaml
+    │   └── nextjs-prisma.yaml
+    ├── lib/                     ← manifest, render, decision, state, runner
+    ├── bootstrap.py             ← render templates + manifest → ../.claude/agents/
+    ├── orchestrator.py          ← classify → invoke gates → state machine
+    └── docs/                    ← split sub-guides
 ```
 
 ## Quick start
@@ -37,25 +42,25 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
 # 1. Copy the starter manifest and fill in project-specific facts
-cp manifests/_starter.yaml manifests/myproject.yaml
-$EDITOR manifests/myproject.yaml
+cp .omni-team/manifests/_starter.yaml .omni-team/manifests/myproject.yaml
+$EDITOR .omni-team/manifests/myproject.yaml
 
 # 2. Render the agents (writes to .claude/agents/)
-python bootstrap.py --manifest manifests/myproject.yaml
+python .omni-team/bootstrap.py --manifest .omni-team/manifests/myproject.yaml
 
 # 3. See which gates would run for the current branch's diff
-python orchestrator.py classify \
-    --manifest manifests/myproject.yaml \
+python .omni-team/orchestrator.py classify \
+    --manifest .omni-team/manifests/myproject.yaml \
     --mp WORK-01 --base origin/main
 
 # 4. Run the full pipeline
-python orchestrator.py run \
-    --manifest manifests/myproject.yaml \
+python .omni-team/orchestrator.py run \
+    --manifest .omni-team/manifests/myproject.yaml \
     --mp WORK-01 --base origin/main
 
 # 5. Inspect state any time
-python orchestrator.py status \
-    --manifest manifests/myproject.yaml \
+python .omni-team/orchestrator.py status \
+    --manifest .omni-team/manifests/myproject.yaml \
     --mp WORK-01
 ```
 
@@ -80,7 +85,7 @@ the resolved agent file into `.claude/agents/`.
 ## Manifest reference
 
 The manifest is a single YAML file with these top-level sections (see
-`manifests/example.yaml` for a fully-populated reference):
+`.omni-team/manifests/example.yaml` for a fully-populated reference):
 
 | Section | Purpose |
 |---|---|
@@ -119,7 +124,7 @@ intentionally empty, set it to the literal string `(none)`.
 
 ## Decision matrix
 
-The matrix in `manifests/<project>.yaml` is data, not code. It has two parts:
+The matrix in `.omni-team/manifests/<project>.yaml` is data, not code. It has two parts:
 
 ```yaml
 decision_matrix:
@@ -190,9 +195,9 @@ Flags worth knowing:
   env:
     ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
   run: |
-    python bootstrap.py --manifest manifests/<your>.yaml
-    python orchestrator.py run \
-        --manifest manifests/<your>.yaml \
+    python .omni-team/bootstrap.py --manifest .omni-team/manifests/<your>.yaml
+    python .omni-team/orchestrator.py run \
+        --manifest .omni-team/manifests/<your>.yaml \
         --mp "${{ github.event.pull_request.title }}" \
         --base "${{ github.base_ref }}"
 ```
@@ -232,17 +237,17 @@ giving CI a natural gate.
 
 | File | Purpose |
 |---|---|
-| `templates/<agent>.md` | Universal role + process prompt with `{{placeholders}}` |
-| `manifests/example.yaml` | Fully-populated reference manifest |
-| `manifests/_starter.yaml` | Copy-paste skeleton with `TODO_*` markers |
-| `examples/*.yaml` | Reference manifests for other stacks |
-| `lib/manifest.py` | YAML loader + dotted-key lookup |
-| `lib/render.py` | `{{key.path}}` substitution |
-| `lib/decision.py` | Decision matrix evaluator |
-| `lib/state.py` | `RunState` / `GateState` + JSON persistence |
-| `lib/runner.py` | `claude -p` subprocess + verdict classifier |
-| `bootstrap.py` | Render templates → `.claude/agents/` |
-| `orchestrator.py` | Classify, run, run-gate, status |
+| `.omni-team/templates/<agent>.md` | Universal role + process prompt with `{{placeholders}}` |
+| `.omni-team/manifests/example.yaml` | Fully-populated reference manifest |
+| `.omni-team/manifests/_starter.yaml` | Copy-paste skeleton with `TODO_*` markers |
+| `.omni-team/examples/*.yaml` | Reference manifests for other stacks |
+| `.omni-team/lib/manifest.py` | YAML loader + dotted-key lookup |
+| `.omni-team/lib/render.py` | `{{key.path}}` substitution |
+| `.omni-team/lib/decision.py` | Decision matrix evaluator |
+| `.omni-team/lib/state.py` | `RunState` / `GateState` + JSON persistence |
+| `.omni-team/lib/runner.py` | `claude -p` subprocess + verdict classifier |
+| `.omni-team/bootstrap.py` | Render templates → `.claude/agents/` |
+| `.omni-team/orchestrator.py` | Classify, run, run-gate, status |
 
 ---
 

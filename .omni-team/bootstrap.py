@@ -21,7 +21,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-PROJECT_ROOT = ROOT
+PROJECT_ROOT = ROOT.parent
 sys.path.insert(0, str(ROOT))
 
 from lib import manifest as _manifest  # noqa: E402
