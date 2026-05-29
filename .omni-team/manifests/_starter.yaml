@@ -39,6 +39,11 @@ quality_limits:
 backend:
   framework: TODO_FRAMEWORK         # FastAPI, Django, Express, Rails, Spring Boot
   language: TODO_LANGUAGE
+  # Shell prefix run before any backend command. Examples:
+  #   Python venv:  "source .venv/bin/activate &&"
+  #   Node nvm:     "nvm use &&"
+  #   None needed:  ""              (Java/Maven, .NET, Go, Rust, system Node)
+  activate_cmd: ""
   test_cmd: "TODO_TEST_CMD"
   dev_url: "http://localhost:8000"
   dev_port: 8000
@@ -126,6 +131,7 @@ database:
   engine: TODO                      # postgres, mysql, sqlite, mongodb
   migrations:
     tool: TODO                      # alembic, prisma, knex, flyway, django-migrate
+    # REPO-root-relative path (used by orchestrator.py to detect schema changes).
     versions_dir: TODO_VERSIONS_DIR
     cmd_new: 'TODO_NEW_MIGRATION_CMD'
     cmd_up: "TODO_APPLY_CMD"
@@ -234,24 +240,10 @@ claude_code:
       - "Bash(pytest:*)"
       - "Bash(ruff check:*)"
 
-# =============================================================================
-# Custom commands for Claude Code
-# =============================================================================
-commands:
-  test_backend:
-    description: "Run backend quality gate — linter + formatter + tests"
-    script: |
-      cd {{backend.root}} && {{backend.test_cmd}}
-
-  test_frontend:
-    description: "Run frontend quality gate — linter + formatter + tests"
-    script: |
-      cd {{frontend.root}} && {{frontend.test_cmd}}
-
-  migrate_new:
-    description: "Create a new database migration"
-    script: |
-      cd {{backend.root}} && {{database.migrations.cmd_new}}
+# Note: command files are rendered by bootstrap.py from `.omni-team/templates/commands/*.md`
+# using placeholders like {{backend.test_cmd}} and {{database.migrations.cmd_new}}.
+# To customize a command's behavior, edit the relevant scalar in `backend`/`frontend`/
+# `database.migrations` above — there is no `commands:` block to fill in here.
 
 # -----------------------------------------------------------------------------
 decision_matrix:

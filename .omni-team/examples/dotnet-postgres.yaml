@@ -1,0 +1,348 @@
+# =============================================================================
+# Example manifest: ASP.NET Core 8 + Postgres + EF Core (no FE in this repo)
+# =============================================================================
+# Use case: .NET backend Web API using ASP.NET Core 8, EF Core 8 with Npgsql,
+# migrations via `dotnet ef`. Demonstrates omni-team supports the .NET stack.
+#
+# Differences vs FastAPI / Spring starters:
+# - `backend.activate_cmd: ""` (no venv, no Maven wrapper — `dotnet` is on PATH)
+# - EF Core migrations under `Infrastructure/Persistence/Migrations`
+# - ProblemDetails (RFC 7807) instead of FastAPI exception class
+# - `IUnitOfWork.SaveChangesAsync` boundary instead of explicit commit()
+# - No first-party frontend (Blazor or external SPA assumed)
+# =============================================================================
+
+project:
+  name: Example DotNet Service
+  short_name: example-dotnet
+  description: |
+    ASP.NET Core 8 minimal-API backend on .NET 8 LTS. Postgres 16 via EF Core 8 + Npgsql.
+    EF Core migrations. No first-party frontend in this repo.
+
+work_unit_label: Ticket
+work_unit_example_id: "TKT-101"
+spec_root: docs/tickets/
+artifact_dir: docs/tickets/{mp_id}/agent-pow
+post_qa_lead_gate_label: "code review + merge"
+
+models:
+  tech_lead: opus
+  backend_reviewer: sonnet
+  frontend_reviewer: sonnet      # unused but required by template
+  dba: sonnet
+  qa_engineer: sonnet
+  qa_lead: opus
+  perf_engineer: sonnet
+  security_engineer: sonnet
+  ui_smoke_engineer: sonnet      # unused
+
+quality_limits:
+  file_lines: 500
+  function_lines: 80
+  function_params: 8
+  nesting_depth: 4
+
+# -----------------------------------------------------------------------------
+backend:
+  framework: ASP.NET Core 8
+  language: csharp
+  # `dotnet` is on PATH — no shell prefix needed.
+  activate_cmd: ""
+  test_cmd: "dotnet test --nologo --verbosity minimal"
+  dev_url: "http://localhost:5000"
+  dev_port: 5000
+  health_url: "http://localhost:5000/health"
+
+  root: src
+  app_dir: src/Example.Api/
+  models_dir: src/Example.Domain/Entities/
+  schemas_dir: src/Example.Api/Contracts/
+  repos_dir: src/Example.Infrastructure/Persistence/Repositories/
+  services_dir: src/Example.Application/Services/
+  routers_dir: src/Example.Api/Endpoints/
+  tests_dir: tests/
+  tests_glob: "tests/**/*Tests.cs"
+  entrypoint: src/Example.Api/Program.cs
+  generated_files_csv: "bin/, obj/, Migrations/*.Designer.cs, Migrations/*ModelSnapshot.cs"
+
+  # EF Core idioms — query patterns the reviewer scans for
+  db_query_patterns: "dbContext.Set<T>(), context.<Entity>.Where, FromSqlRaw, ExecuteSqlRaw"
+  commit_call: "await unitOfWork.SaveChangesAsync(cancellationToken)"
+  commit_exception: "Exception: read-only handlers may pass IDbContextFactory and skip the UoW."
+  forbidden_sort_pattern: "EF.Property<object>(e, request.SortField)  // unbounded dynamic property sort"
+
+  error_contract:
+    name: ProblemDetails
+    shape: '{"type": "...", "title": "...", "status": 400, "detail": "...", "instance": "..."}'
+    location: "src/Example.Api/Middleware/ProblemDetailsMiddleware.cs"
+
+  soft_delete:
+    mixin: ISoftDeletable (interface) + HasQueryFilter in DbContext.OnModelCreating
+    column: DeletedAt
+    live_filter: "modelBuilder.Entity<T>().HasQueryFilter(e => e.DeletedAt == null)"
+
+  framework_version_idioms_md: |
+    .NET 8 / C# 12 idioms:
+      - Use primary constructors on services where appropriate.
+      - Prefer `required` modifier over nullable-with-runtime-check for mandatory init properties.
+      - Prefer `IResult` / `TypedResults.*` over `IActionResult` in minimal-API endpoints.
+      - Use `CancellationToken` on every async handler — never call `.Wait()` / `.Result`.
+    EF Core 8 idioms:
+      - Use compiled queries (`EF.CompileAsyncQuery`) for hot paths.
+      - Prefer `AsNoTracking()` on read-only queries.
+      - Use `ExecuteUpdateAsync`/`ExecuteDeleteAsync` for bulk operations (EF8 feature).
+
+  layer_rules_md: |
+    - Layer order: `Domain (entities) → Infrastructure (repositories, EF Core) → Application (services) → Api (endpoints) → wire in Program.cs`.
+    - Flow direction: `endpoint → application service → repository`. Reverse forbidden (Application must not reference Api).
+    - Endpoints: minimal-API delegates — parse request, call service, return `TypedResults.*`. No EF, no business logic.
+    - Application services: orchestrate use cases. Call into `IUnitOfWork.SaveChangesAsync` at boundaries. No HTTP concerns.
+    - Repositories: implement domain-defined interfaces; return entities or projections. No commit (UoW handles it).
+
+  async_pitfalls_md: |
+    `.Wait()` / `.Result` on Tasks (causes deadlocks under sync context).
+    `HttpClient` created per-request (must be `IHttpClientFactory`-driven).
+    EF Core queries materialized without `ToListAsync` then iterated (DB connection held open).
+    Missing `CancellationToken` on long-running handlers.
+
+# -----------------------------------------------------------------------------
+frontend:
+  framework: ""                # empty = disabled, FE agents will skip
+  language: ""
+  activate_cmd: ""
+  test_cmd: ""
+  dev_url: ""
+  stack_up_cmd: ""
+  root: ""
+  app_dir: ""
+  components_dir: ""
+  feature_module_path: ""
+  hooks_pattern_path: ""
+  wireframe_dir: ""
+  locales: ["en"]
+  locales_csv: "en"
+  i18n_hook: ""
+  i18n_call: ""
+  i18n_call_regex: ""
+  locale_files_md: "(none)"
+  ui_library: ""
+  proxy_helper: ""
+  proxy_helper_path: ""
+  proxy_exceptions_md: "(none)"
+  source_extensions_csv: ""
+  generated_files_csv: ""
+  test_files_note: ""
+  browser_mcp: ""
+  browser_mcp_tools: ""
+  review_exemptions_md: "(none)"
+
+# -----------------------------------------------------------------------------
+database:
+  engine: postgres
+  migrations:
+    tool: ef-core
+    # REPO-root-relative (used by orchestrator.py for schema-change detection).
+    versions_dir: src/Example.Infrastructure/Persistence/Migrations/
+    # `dotnet ef migrations add` consumes the next positional arg as the migration name.
+    cmd_new: 'dotnet ef migrations add --project Example.Infrastructure --startup-project Example.Api'
+    cmd_up: "dotnet ef database update --project Example.Infrastructure --startup-project Example.Api"
+    cmd_down: "dotnet ef database update <PreviousMigrationName> --project Example.Infrastructure --startup-project Example.Api"
+    cmd_current: "dotnet ef migrations list --project Example.Infrastructure --startup-project Example.Api"
+    cmd_sql: "dotnet ef migrations script --project Example.Infrastructure --startup-project Example.Api"
+
+  soft_delete:
+    partial_unique_clause_code: 'modelBuilder.Entity<T>().HasIndex(e => e.NaturalKey).IsUnique().HasFilter("\"DeletedAt\" IS NULL")'
+
+  rls:
+    file: ""
+
+  vendor_owned_schemas_md: |
+    (none) — list vendor-managed schemas to skip in custom migrations if any.
+
+# -----------------------------------------------------------------------------
+llm:
+  enabled: false
+  provider: ""
+  register_path_list: ""
+  prompt_template_location: ""
+  slow_log_ms: 5000
+
+conventions:
+  idempotency:
+    helper: "IIdempotencyKeyService.BuildKey(...)"
+    location: src/Example.Application/Idempotency/IdempotencyKeyService.cs
+
+performance:
+  baseline_doc: docs/PERFORMANCE.md
+  cache_layer_helpers: "IMemoryCache (per-instance) and IDistributedCache (Redis) helpers in Example.Infrastructure/Caching"
+  tier_table_md: |
+    | Tier | Threshold | Pattern |
+    |------|-----------|---------|
+    | A — External API | ≤ 5,000 ms | HttpClient calls to 3rd-party |
+    | B — DB Complex   | ≤ 500 ms   | EF Core joins, projections, raw SQL |
+    | C — DB Simple    | ≤ 150 ms   | Single-table FindAsync / projection |
+    | D — Cache hit    | ≤ 50 ms    | IMemoryCache hit, /health |
+
+security:
+  trigger_paths_md: |
+    - `src/Example.Api/Auth/**` (JWT/cookie config, token issuance)
+    - `src/Example.Api/Authorization/**` (policies, requirements, handlers)
+    - `src/**/appsettings*.json` (connection strings, OAuth client secrets)
+    - `src/Example.Api/Program.cs` (services.AddAuthentication / .AddAuthorization)
+  pii_fields_csv: "Email, Phone, Ssn, PaymentMethod"
+  pii_log_keywords_csv: "`Email`, `Password`, `Phone`, `Ssn`, `Token`, `Authorization`, `Cookie`"
+  cookie_flags_required_csv: "HttpOnly + SameSite=Lax"
+  cookie_prod_extra: ", and in production `Secure`"
+  auth_guard_helpers: "`[Authorize(Policy=\"...\")]` on endpoint groups or `.RequireAuthorization(\"...\")` builder call"
+  pii_storage_pattern_md: |
+    Encrypt PII via EF Core value converters wrapping `IDataProtector`.
+    Hash emails into `EmailHash` for case-insensitive lookups.
+
+cross_cutting_invariants_md: |
+  - **Soft-delete invariant**: every `ISoftDeletable` entity is guarded by `HasQueryFilter(e => e.DeletedAt == null)` in `DbContext.OnModelCreating`.
+  - **Error envelope**: every exception flows through `ProblemDetailsMiddleware` and returns RFC 7807 ProblemDetails.
+  - **UnitOfWork boundary**: services call `await _uow.SaveChangesAsync(ct)` at the use-case boundary; repositories never commit.
+  - **EF Core migrations only**: schema changes happen through `dotnet ef migrations add ...`. Manual SQL DDL is forbidden outside migration `Up()` / `Down()` overrides.
+  - **CancellationToken on every async handler**: never call `.Wait()` / `.Result`.
+  - **Idempotent side effects**: external calls + queued jobs require `IIdempotencyKeyService.BuildKey(...)`.
+
+design_docs_list: |
+  - `docs/ARCHITECTURE.md` — Clean Architecture layering and project references.
+  - `docs/DOMAIN.md` — aggregate roots, invariants.
+  - `docs/SECURITY.md` — JWT/cookie strategy, policies.
+
+phased_plan_template_md: |
+  #### Phase 1 — Schema + Entity
+  - [ ] `src/Example.Domain/Entities/<Entity>.cs` — entity + invariants
+  - [ ] `src/Example.Infrastructure/Persistence/Configurations/<Entity>Configuration.cs` — EF mapping
+  - [ ] `dotnet ef migrations add Add<Entity>` — generated under `Migrations/`
+
+  #### Phase 2 — Contracts
+  - [ ] `src/Example.Api/Contracts/<Feature>Request.cs` (record + DataAnnotations or FluentValidation)
+  - [ ] `src/Example.Api/Contracts/<Feature>Response.cs`
+
+  #### Phase 3 — Repository
+  - [ ] `src/Example.Domain/Repositories/I<Entity>Repository.cs` — interface
+  - [ ] `src/Example.Infrastructure/Persistence/Repositories/<Entity>Repository.cs` — EF Core impl
+
+  #### Phase 4 — Application Service
+  - [ ] `src/Example.Application/Services/<Feature>Service.cs` — orchestration + UoW commit
+
+  #### Phase 5 — Endpoint
+  - [ ] `src/Example.Api/Endpoints/<Feature>Endpoints.cs` — minimal-API group + `RequireAuthorization`
+  - [ ] Register group in `Program.cs`
+
+  #### Phase 6 — Tests
+  - [ ] `tests/Example.Application.Tests/<Feature>ServiceTests.cs` — xUnit + NSubstitute
+  - [ ] `tests/Example.Api.Tests/<Feature>EndpointsTests.cs` — `WebApplicationFactory` integration
+
+llm_specific_planning_md: "(none)"
+
+qa_lead:
+  frontend_tests_clause: ""
+
+project_rules:
+  backend_reviewer:
+    critical_md: |
+      - **No `.Wait()` / `.Result` on Tasks** — only `await`.
+      - **No `HttpClient` constructed via `new HttpClient()`** — use `IHttpClientFactory`.
+      - **No EF Core queries inside endpoint delegates** — must go through repository.
+      - **No `AsEnumerable()` / `.ToList()` materialising a whole table** before filtering.
+    warning_md: |
+      - **`TypedResults` over `Results`** — typed results improve OpenAPI generation.
+      - **`AsNoTracking()` on read-only queries** — perf default.
+
+  frontend_reviewer: { critical_md: "(none — no FE in this repo)", warning_md: "(none)" }
+
+  dba:
+    lessons_md: |
+      > **EF Core migrations are immutable once shipped**. Never edit an applied migration; write a new one.
+      > Check `*.Designer.cs` and `*ModelSnapshot.cs` are committed alongside the migration `.cs`.
+    critical_md: |
+      - **Adding a non-nullable column on a populated table** requires a `DEFAULT` or two-step migration (add nullable → backfill → enforce NOT NULL).
+      - **No raw SQL `DROP TABLE` / `DROP COLUMN`** outside the `Down()` method.
+    warning_md: |
+      - **Index on every new FK** — EF Core does NOT auto-create FK indexes unless `HasIndex` is declared.
+
+  qa_engineer:
+    p0_md: |
+      - **Application service tests with NSubstitute mocks** for new use cases.
+      - **Endpoint integration tests via `WebApplicationFactory`** for new minimal-API groups — assert status, response shape, authorization.
+
+  qa_lead:
+    smoke_checks_md: |
+      - **`dotnet test` passes locally** (compile + unit + integration).
+      - **`/health` returns 200 Healthy** after stack-up.
+
+  perf_engineer:
+    rules_md: |
+      - **N+1 detection** — flag navigation property access in loops without `Include` or projection.
+      - **Pagination** — list endpoints must accept `pageSize`/`pageNumber` (or cursor) with a bounded max.
+      - **`AsSplitQuery()` on multi-`Include` queries** to avoid cartesian explosion.
+
+  security_engineer:
+    rules_md: |
+      - **Authorization policies declared on every endpoint group** — default policy must require authenticated user.
+      - **JWT bearer or cookie scheme — never both for the same endpoint** without a clear reason.
+      - **AntiForgery on state-changing endpoints behind cookie auth** unless explicitly stateless+JWT.
+      - **No `[AllowAnonymous]`** without justification in the spec.
+
+# -----------------------------------------------------------------------------
+decision_matrix:
+  base:
+    - name: trivial
+      when: { loc_max: 20 }
+      agents: []
+    - name: bug-fix
+      when: { loc_max: 100, stacks: ["backend"], schema_change: false }
+      agents: ["backend-reviewer"]
+    - name: new-endpoint
+      when: { loc_max: 500, stacks: ["backend"], new_route: true, schema_change: false }
+      agents: ["qa-engineer", "backend-reviewer", "perf-engineer"]
+    - name: schema-change
+      when: { loc_max: 800, stacks: ["backend"], schema_change: true }
+      agents: ["dba", "qa-engineer", "backend-reviewer", "perf-engineer"]
+    - name: default
+      when: { loc_max: 999999 }
+      agents: ["tech-lead", "qa-engineer", "backend-reviewer", "qa-lead"]
+
+  add_if:
+    - name: security-sensitive
+      when:
+        path_globs:
+          - "src/Example.Api/Auth/**"
+          - "src/Example.Api/Authorization/**"
+          - "src/**/appsettings*.json"
+        keywords: ["password", "token", "jwt", "secret", "ApiKey", "Authorization", "AntiForgery"]
+        pii_fields: ["Email", "Phone", "Ssn"]
+      agents_add: ["security-engineer"]
+
+# -----------------------------------------------------------------------------
+orchestrator:
+  retry_budget:
+    block_max: 3
+    request_changes_max: 5
+  spawn_mode: subprocess
+  claude_cmd: claude
+  state_file_pattern: docs/tickets/{mp_id}/agent-pow/_state.json
+  final_human_gate: "code review + merge"
+
+# =============================================================================
+# Claude Code configuration
+# =============================================================================
+claude_code:
+  enabled_mcps: []
+
+  post_tool_use_hooks_md: |
+    - matcher: "src/Example.Infrastructure/Persistence/Migrations/*.cs"
+      reason: "Applied EF Core migrations are immutable. Generate a new one via `dotnet ef migrations add`."
+    - matcher: "src/**/appsettings*.json"
+      reason: "Settings changes can leak secrets — confirm no plaintext connection strings or client secrets."
+
+  stop_hook_reminder: "Reminder: run /test-be (dotnet test) before declaring done."
+
+  permissions_allow_list: |
+    Bash(ls:*), Bash(rg:*), Bash(dotnet:*)
+
+# Note: command files are rendered from templates/commands/*.md using {{backend.test_cmd}},
+# {{backend.activate_cmd}}, and {{database.migrations.cmd_*}} — no `commands:` block here.

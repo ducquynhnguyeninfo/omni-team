@@ -40,6 +40,7 @@ quality_limits:
 backend:
   framework: Django + DRF
   language: python
+  activate_cmd: "source .venv/bin/activate &&"
   test_cmd: "ruff check . && pytest -q"
   dev_url: "http://localhost:8000"
   dev_port: 8000
@@ -239,3 +240,12 @@ orchestrator:
   claude_cmd: claude
   state_file_pattern: docs/stories/{mp_id}/agent-pow/_state.json
   final_human_gate: "code review + merge"
+
+claude_code:
+  enabled_mcps: []
+  post_tool_use_hooks_md: |
+    - matcher: "backend/apps/*/migrations/*.py"
+      reason: "Applied Django migrations are immutable. Run `python manage.py makemigrations` for a new one."
+  stop_hook_reminder: "Reminder: run /test-be (ruff check + pytest) before declaring done."
+  permissions_allow_list: |
+    Bash(ls:*), Bash(rg:*), Bash(python manage.py:*), Bash(pytest:*), Bash(ruff:*)

@@ -1,0 +1,351 @@
+# =============================================================================
+# Example manifest: NestJS 10 + Postgres + TypeORM (no FE in this repo)
+# =============================================================================
+# Use case: TypeScript backend Web API using NestJS 10, TypeORM 0.3, pnpm.
+# Demonstrates omni-team supports Node/TypeScript backends with class-based DI.
+#
+# Differences vs FastAPI / Spring / .NET starters:
+# - `backend.activate_cmd: ""` (pnpm + node are on PATH, no env activation)
+# - TypeORM migrations under `src/database/migrations`
+# - `HttpException` filter + global `ErrorResponseDto` instead of FastAPI/Spring shape
+# - Service-layer `@Transaction` decorator (or `manager.transaction(...)`) for atomic commits
+# - No first-party frontend in this repo
+# =============================================================================
+
+project:
+  name: Example NestJS Service
+  short_name: example-nest
+  description: |
+    NestJS 10 + TypeScript backend Web API. Postgres 16 via TypeORM 0.3.
+    pnpm + Vitest. No first-party frontend in this repo.
+
+work_unit_label: Task
+work_unit_example_id: "TASK-77"
+spec_root: docs/tasks/
+artifact_dir: docs/tasks/{mp_id}/agent-pow
+post_qa_lead_gate_label: "code review + merge"
+
+models:
+  tech_lead: opus
+  backend_reviewer: sonnet
+  frontend_reviewer: sonnet      # unused but required by template
+  dba: sonnet
+  qa_engineer: sonnet
+  qa_lead: opus
+  perf_engineer: sonnet
+  security_engineer: sonnet
+  ui_smoke_engineer: sonnet      # unused
+
+quality_limits:
+  file_lines: 500
+  function_lines: 80
+  function_params: 8
+  nesting_depth: 4
+
+# -----------------------------------------------------------------------------
+backend:
+  framework: NestJS 10
+  language: typescript
+  # pnpm + node are on PATH — no activation needed.
+  activate_cmd: ""
+  test_cmd: "pnpm lint && pnpm typecheck && pnpm test"
+  dev_url: "http://localhost:3000"
+  dev_port: 3000
+  health_url: "http://localhost:3000/health"
+
+  root: api
+  app_dir: api/src/
+  models_dir: api/src/modules/<feature>/entities/
+  schemas_dir: api/src/modules/<feature>/dto/
+  repos_dir: api/src/modules/<feature>/<feature>.repository.ts
+  services_dir: api/src/modules/<feature>/<feature>.service.ts
+  routers_dir: api/src/modules/<feature>/<feature>.controller.ts
+  tests_dir: api/test/
+  tests_glob: "api/src/**/*.spec.ts"
+  entrypoint: api/src/main.ts
+  generated_files_csv: "dist/, node_modules/, *.d.ts.map"
+
+  # TypeORM idioms — query patterns the reviewer scans for
+  db_query_patterns: "repository.find, repository.save, createQueryBuilder, manager.query"
+  commit_call: "await this.dataSource.transaction(async (manager) => { ... })"
+  commit_exception: "Exception: scripts in `api/scripts/` may use a standalone DataSource without DI."
+  forbidden_sort_pattern: "queryBuilder.orderBy(req.query.sortField as string)  // unbounded dynamic sort"
+
+  error_contract:
+    name: ErrorResponseDto
+    shape: '{"errorCode": "...", "message": "...", "statusCode": 400}'
+    location: "api/src/common/filters/http-exception.filter.ts"
+
+  soft_delete:
+    mixin: SoftDeletableEntity (extends BaseEntity with @DeleteDateColumn)
+    column: deletedAt
+    live_filter: "withDeleted: false  (the TypeORM default; explicit on QueryBuilder via .andWhere('e.deletedAt IS NULL'))"
+
+  framework_version_idioms_md: |
+    NestJS 10 / TypeScript 5 idioms:
+      - Prefer constructor injection with `private readonly` parameters over `@Inject()` field injection.
+      - Use `class-validator` + `ValidationPipe` (whitelist: true, forbidNonWhitelisted: true) on all DTOs.
+      - Prefer `@Injectable({ scope: Scope.DEFAULT })` (singleton) unless request-scope is genuinely required.
+      - Use `Logger` from `@nestjs/common` (not `console.log`).
+    TypeORM 0.3 idioms:
+      - Use `DataSource` and `Repository<T>` — the legacy `getRepository()` global is removed.
+      - Prefer `repository.find({ where, relations })` over `createQueryBuilder` for simple cases.
+      - Use `@Index` decorators alongside `@Column` for declared indexes.
+
+  layer_rules_md: |
+    - Layer order: `Entity (TypeORM) → Repository → Service → Controller → register in Module`.
+    - Flow direction: `controller → service → repository`. Reverse forbidden.
+    - Controllers: `@Controller()` + DTO validation → call service → return DTO. No TypeORM, no business logic.
+    - Services: `@Injectable()` + transactional boundary (`dataSource.transaction(...)` for multi-step writes). No HTTP, no raw SQL.
+    - Repositories: extend `Repository<T>` (or `@InjectRepository(Entity)`); return entities or projections. No commit, no business logic.
+
+  async_pitfalls_md: |
+    Synchronous `fs.readFileSync` / `crypto` heavy calls in request paths.
+    Forgetting `await` on a returned Promise — exception escapes the request lifecycle.
+    Using `setTimeout`/`setInterval` for cron — use `@nestjs/schedule` `@Cron` decorator.
+    Blocking the event loop with CPU-bound work — move to a worker via `@nestjs/bullmq`.
+
+# -----------------------------------------------------------------------------
+frontend:
+  framework: ""                # empty = disabled, FE agents will skip
+  language: ""
+  activate_cmd: ""
+  test_cmd: ""
+  dev_url: ""
+  stack_up_cmd: ""
+  root: ""
+  app_dir: ""
+  components_dir: ""
+  feature_module_path: ""
+  hooks_pattern_path: ""
+  wireframe_dir: ""
+  locales: ["en"]
+  locales_csv: "en"
+  i18n_hook: ""
+  i18n_call: ""
+  i18n_call_regex: ""
+  locale_files_md: "(none)"
+  ui_library: ""
+  proxy_helper: ""
+  proxy_helper_path: ""
+  proxy_exceptions_md: "(none)"
+  source_extensions_csv: ""
+  generated_files_csv: ""
+  test_files_note: ""
+  browser_mcp: ""
+  browser_mcp_tools: ""
+  review_exemptions_md: "(none)"
+
+# -----------------------------------------------------------------------------
+database:
+  engine: postgres
+  migrations:
+    tool: typeorm
+    # REPO-root-relative (used by orchestrator.py for schema-change detection).
+    versions_dir: api/src/database/migrations/
+    # TypeORM CLI requires the migration name appended to the destination path:
+    #   pnpm typeorm migration:create src/database/migrations/AddUsersTable
+    # The `bash -c '...' _` wrapper binds the template's trailing "$ARGUMENTS" to $1
+    # and normalizes whitespace to underscores.
+    cmd_new: 'bash -c ''pnpm typeorm migration:create "src/database/migrations/${1// /_}"'' _'
+    cmd_up: "pnpm typeorm migration:run -d src/database/data-source.ts"
+    cmd_down: "pnpm typeorm migration:revert -d src/database/data-source.ts"
+    cmd_current: "pnpm typeorm migration:show -d src/database/data-source.ts"
+    cmd_sql: "pnpm typeorm migration:generate src/database/migrations/preview -d src/database/data-source.ts --dry-run"
+
+  soft_delete:
+    partial_unique_clause_code: "CREATE UNIQUE INDEX ... WHERE \"deletedAt\" IS NULL  -- in a TypeORM migration"
+
+  rls:
+    file: ""
+
+  vendor_owned_schemas_md: |
+    (none) — list vendor-managed schemas to skip in custom migrations if any.
+
+# -----------------------------------------------------------------------------
+llm:
+  enabled: false
+  provider: ""
+  register_path_list: ""
+  prompt_template_location: ""
+  slow_log_ms: 5000
+
+conventions:
+  idempotency:
+    helper: "IdempotencyKeyService.buildKey(...)"
+    location: api/src/common/idempotency/idempotency-key.service.ts
+
+performance:
+  baseline_doc: docs/PERFORMANCE.md
+  cache_layer_helpers: "@nestjs/cache-manager with Redis adapter (CacheModule.register)"
+  tier_table_md: |
+    | Tier | Threshold | Pattern |
+    |------|-----------|---------|
+    | A — External API | ≤ 5,000 ms | HttpModule / axios calls to 3rd-party |
+    | B — DB Complex   | ≤ 500 ms   | TypeORM joins, QueryBuilder, raw SQL |
+    | C — DB Simple    | ≤ 150 ms   | repository.findOne / findBy |
+    | D — Cache hit    | ≤ 50 ms    | CacheModule hit, /health |
+
+security:
+  trigger_paths_md: |
+    - `api/src/modules/auth/**` (JWT strategy, refresh, sessions)
+    - `api/src/common/guards/**` (AuthGuard, RolesGuard)
+    - `api/src/config/configuration.ts` (env loader)
+    - `.env*` files (must not be committed)
+  pii_fields_csv: "email, phone, ssn, paymentMethod"
+  pii_log_keywords_csv: "`email`, `password`, `phone`, `ssn`, `token`, `jwt`, `Authorization`, `cookie`"
+  cookie_flags_required_csv: "httpOnly + sameSite=lax"
+  cookie_prod_extra: ", and in production `secure`"
+  auth_guard_helpers: "`@UseGuards(JwtAuthGuard)` at controller or method level, or globally via `APP_GUARD` provider"
+  pii_storage_pattern_md: |
+    Encrypt PII columns via TypeORM `ValueTransformer` wrapping `@nestjs/jwt` keys.
+    Hash emails into `emailHash` for case-insensitive lookups.
+
+cross_cutting_invariants_md: |
+  - **Soft-delete invariant**: every `SoftDeletableEntity` query relies on TypeORM's automatic `WHERE deletedAt IS NULL` (default `withDeleted: false`). Explicit `.andWhere('deletedAt IS NULL')` on QueryBuilders.
+  - **Error envelope**: every controller-thrown exception passes through the global `HttpExceptionFilter` and returns `ErrorResponseDto`.
+  - **Transaction boundary**: multi-write use cases wrap in `dataSource.transaction(async (manager) => ...)`. Controllers never start transactions.
+  - **TypeORM migrations only**: schema changes via `pnpm typeorm migration:create ...`. `synchronize: true` is forbidden outside test bootstrap.
+  - **DTO validation**: every `@Body()` / `@Query()` / `@Param()` payload uses `class-validator` DTOs; global `ValidationPipe({ whitelist: true })`.
+  - **Idempotent side effects**: external API calls and BullMQ jobs require `IdempotencyKeyService.buildKey(...)`.
+
+design_docs_list: |
+  - `docs/ARCHITECTURE.md` — module graph, layering.
+  - `docs/DOMAIN.md` — aggregates, invariants.
+  - `docs/SECURITY.md` — JWT/refresh flow, guards, RBAC.
+
+phased_plan_template_md: |
+  #### Phase 1 — Schema + Entity
+  - [ ] `api/src/modules/<feature>/entities/<entity>.entity.ts` — TypeORM entity + `@Index` declarations
+  - [ ] `pnpm typeorm migration:create src/database/migrations/Add<Entity>` — generated migration
+
+  #### Phase 2 — DTOs
+  - [ ] `api/src/modules/<feature>/dto/create-<feature>.dto.ts` — `class-validator` decorators
+  - [ ] `api/src/modules/<feature>/dto/<feature>-response.dto.ts`
+
+  #### Phase 3 — Repository
+  - [ ] `api/src/modules/<feature>/<feature>.repository.ts` — extends `Repository<Entity>`
+
+  #### Phase 4 — Service
+  - [ ] `api/src/modules/<feature>/<feature>.service.ts` — `@Injectable()`, transaction boundary
+
+  #### Phase 5 — Controller + Module wiring
+  - [ ] `api/src/modules/<feature>/<feature>.controller.ts` — `@Controller`, guards, DTO validation
+  - [ ] `api/src/modules/<feature>/<feature>.module.ts` — register providers + repository
+  - [ ] Import the module in `api/src/app.module.ts`
+
+  #### Phase 6 — Tests
+  - [ ] `api/src/modules/<feature>/<feature>.service.spec.ts` — Vitest + `Test.createTestingModule`
+  - [ ] `api/src/modules/<feature>/<feature>.controller.spec.ts` — supertest integration
+
+llm_specific_planning_md: "(none)"
+
+qa_lead:
+  frontend_tests_clause: ""
+
+project_rules:
+  backend_reviewer:
+    critical_md: |
+      - **No `getRepository()` global** — removed in TypeORM 0.3; use `@InjectRepository(Entity)` DI.
+      - **No `synchronize: true`** in committed `data-source.ts` config (test bootstrap is the exception).
+      - **No `any` in controller/service signatures** — every DTO and return type explicit.
+      - **No business logic in controllers** — they parse + delegate only.
+    warning_md: |
+      - **`@Injectable()` over `useFactory`** when no async config is required.
+      - **`ConfigService.getOrThrow<T>(...)`** instead of `get<T>(...) ?? defaultValue` for required env keys.
+
+  frontend_reviewer: { critical_md: "(none — no FE in this repo)", warning_md: "(none)" }
+
+  dba:
+    lessons_md: |
+      > **TypeORM migrations are immutable once shipped**. To change applied DDL, write a new migration class.
+      > Verify the generated `up()` / `down()` are reversible — `pnpm typeorm migration:revert` must work.
+    critical_md: |
+      - **Adding a non-nullable column on populated tables** requires `default` or two-step migration (add nullable → backfill → enforce NOT NULL).
+      - **No `synchronize: true` runtime path** under any environment.
+    warning_md: |
+      - **FK indexes** — TypeORM auto-creates an index for `@ManyToOne` FKs, but `@JoinColumn` on `@OneToOne` may need explicit `@Index`.
+
+  qa_engineer:
+    p0_md: |
+      - **Service unit tests via `Test.createTestingModule`** mocking the repository.
+      - **Controller e2e tests via supertest** for new endpoints — assert status, response shape, guards.
+
+  qa_lead:
+    smoke_checks_md: |
+      - **`pnpm typecheck && pnpm lint && pnpm test` all green** locally.
+      - **`/health` returns 200 OK** after stack-up.
+
+  perf_engineer:
+    rules_md: |
+      - **N+1 detection** — flag `repository.find(...)` inside a loop without `relations` eager-load.
+      - **Pagination** — list endpoints must accept `take`/`skip` (or cursor) with a bounded max via DTO validation.
+      - **`.select([...])` projection** on hot read paths to avoid hydrating full entities.
+
+  security_engineer:
+    rules_md: |
+      - **`@UseGuards(JwtAuthGuard)` (or global guard)** on every controller method unless `@Public()` decorator is present.
+      - **`@nestjs/throttler`** rate-limit on auth/login endpoints.
+      - **`helmet()` middleware** registered in `main.ts`.
+      - **No `process.env.X`** inside services — use `ConfigService.getOrThrow`.
+
+# -----------------------------------------------------------------------------
+decision_matrix:
+  base:
+    - name: trivial
+      when: { loc_max: 20 }
+      agents: []
+    - name: bug-fix
+      when: { loc_max: 100, stacks: ["backend"], schema_change: false }
+      agents: ["backend-reviewer"]
+    - name: new-endpoint
+      when: { loc_max: 500, stacks: ["backend"], new_route: true, schema_change: false }
+      agents: ["qa-engineer", "backend-reviewer", "perf-engineer"]
+    - name: schema-change
+      when: { loc_max: 800, stacks: ["backend"], schema_change: true }
+      agents: ["dba", "qa-engineer", "backend-reviewer", "perf-engineer"]
+    - name: default
+      when: { loc_max: 999999 }
+      agents: ["tech-lead", "qa-engineer", "backend-reviewer", "qa-lead"]
+
+  add_if:
+    - name: security-sensitive
+      when:
+        path_globs:
+          - "api/src/modules/auth/**"
+          - "api/src/common/guards/**"
+          - "api/src/config/**"
+          - ".env*"
+        keywords: ["password", "token", "jwt", "secret", "api_key", "Authorization"]
+        pii_fields: ["email", "phone", "ssn"]
+      agents_add: ["security-engineer"]
+
+# -----------------------------------------------------------------------------
+orchestrator:
+  retry_budget:
+    block_max: 3
+    request_changes_max: 5
+  spawn_mode: subprocess
+  claude_cmd: claude
+  state_file_pattern: docs/tasks/{mp_id}/agent-pow/_state.json
+  final_human_gate: "code review + merge"
+
+# =============================================================================
+# Claude Code configuration
+# =============================================================================
+claude_code:
+  enabled_mcps: []
+
+  post_tool_use_hooks_md: |
+    - matcher: "api/src/database/migrations/*.ts"
+      reason: "Applied TypeORM migrations are immutable. Create a new one via `pnpm typeorm migration:create`."
+    - matcher: ".env*"
+      reason: ".env files must not be committed. Verify .gitignore covers and no secrets are inlined."
+
+  stop_hook_reminder: "Reminder: run /test-be (pnpm lint && typecheck && test) before declaring done."
+
+  permissions_allow_list: |
+    Bash(ls:*), Bash(rg:*), Bash(pnpm:*), Bash(node:*)
+
+# Note: command files are rendered from templates/commands/*.md using {{backend.test_cmd}},
+# {{backend.activate_cmd}}, and {{database.migrations.cmd_*}} — no `commands:` block here.

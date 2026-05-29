@@ -55,6 +55,9 @@ quality_limits:
 backend:
   framework: FastAPI
   language: python
+  # Shell prefix run before any backend command (test, migrate). Use for venv activation,
+  # toolchain switches, env exports. Empty string for stacks that need nothing.
+  activate_cmd: "source .venv/bin/activate &&"
   test_cmd: "ruff check . && ruff format --check . && pytest -q"
   dev_url: "http://localhost:8000"
   dev_port: 8000
@@ -465,31 +468,7 @@ claude_code:
     Bash(ls:*), Bash(rg:*), Bash(ruff check:*), Bash(ruff format --check:*),
     Bash(pytest:*), Bash(pnpm test:*), Bash(make migrate-current)
 
-# =============================================================================
-# Custom commands for Claude Code
-# =============================================================================
-commands:
-  test_backend:
-    description: "Run backend quality gate — ruff lint + format check + pytest"
-    script: |
-      cd example-backend && source .venv/bin/activate && ruff check . && ruff format --check . && pytest -q
-
-  test_frontend:
-    description: "Run frontend quality gate — pnpm lint + typecheck + tests"
-    script: |
-      cd example-frontend && pnpm lint && pnpm typecheck && pnpm test
-
-  migrate_new:
-    description: "Create a new database migration"
-    script: |
-      cd example-backend && source .venv/bin/activate && alembic revision --autogenerate -m "$ARGUMENTS"
-
-  migrate_current:
-    description: "Show the current database migration version"
-    script: |
-      cd example-backend && source .venv/bin/activate && alembic current
-
-  stack_up:
-    description: "Start the full dev stack (backend + frontend + postgres)"
-    script: |
-      docker compose -f infra-dev/docker-compose.yaml up -d && echo "Stack started. Backend: http://localhost:8000, Frontend: http://localhost:3000"
+# Note: Custom commands are rendered by bootstrap.py from `.omni-team/templates/commands/*.md`
+# using placeholders like {{backend.test_cmd}}, {{backend.activate_cmd}}, and
+# {{database.migrations.cmd_new}}. To customize a command, edit the relevant scalar in
+# `backend`, `frontend`, or `database.migrations` above — NOT a `commands:` block here.

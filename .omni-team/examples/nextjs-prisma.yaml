@@ -39,6 +39,7 @@ quality_limits:
 backend:
   framework: Next.js Route Handlers
   language: typescript
+  activate_cmd: ""
   test_cmd: "pnpm typecheck && pnpm lint && pnpm test"
   dev_url: "http://localhost:3000"
   dev_port: 3000
@@ -257,3 +258,13 @@ orchestrator:
   claude_cmd: claude
   state_file_pattern: docs/prs/{mp_id}/agent-pow/_state.json
   final_human_gate: "merge to main"
+
+claude_code:
+  enabled_mcps:
+    - chrome_devtools
+  post_tool_use_hooks_md: |
+    - matcher: "prisma/migrations/**/migration.sql"
+      reason: "Applied Prisma migrations are immutable. Run `pnpm prisma migrate dev` for a new one."
+  stop_hook_reminder: "Reminder: run /test-be (typecheck + lint + test) before declaring done."
+  permissions_allow_list: |
+    Bash(ls:*), Bash(rg:*), Bash(pnpm:*), Bash(node:*)

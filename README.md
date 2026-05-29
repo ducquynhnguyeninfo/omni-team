@@ -23,9 +23,12 @@ omni-team/                       ← repo root
     ├── manifests/
     │   ├── example.yaml         ← Layer 3: reference project facts
     │   └── _starter.yaml        ← copy-paste skeleton for new projects
-    ├── examples/
-    │   ├── django-postgres.yaml
-    │   └── nextjs-prisma.yaml
+    ├── examples/                ← reference manifests per stack
+    │   ├── django-postgres.yaml     (Python · Django + DRF)
+    │   ├── nextjs-prisma.yaml       (TypeScript · Next.js Route Handlers + Prisma)
+    │   ├── spring-postgres.yaml     (Java · Spring Boot 3 + Flyway)
+    │   ├── dotnet-postgres.yaml     (C# · ASP.NET Core 8 + EF Core)
+    │   └── nestjs-postgres.yaml     (TypeScript · NestJS 10 + TypeORM)
     ├── lib/                     ← manifest, render, decision, state, runner
     ├── bootstrap.py             ← render templates + manifest → ../.claude/agents/
     ├── orchestrator.py          ← classify → invoke gates → state machine
@@ -120,7 +123,6 @@ The manifest is a single YAML file with these top-level sections (see
 | `cross_cutting_invariants_md` | Universal rules surfaced by tech-lead |
 | `project_rules` | Per-agent extra rules (use `(none)` if empty) |
 | `claude_code` | Enabled MCPs, file validation hooks, permissions, stop reminder |
-| `commands` | Custom CLI commands (test-be, migrate-new, stack-up, etc.) |
 | `decision_matrix` | Base rules + add_if overlays (data, not code) |
 | `orchestrator` | Retry budgets, spawn mode, state file, human gate |
 
@@ -177,17 +179,16 @@ claude_code:
 
 ### Custom commands
 
-Define commands in the `commands:` section. Each command is templated from `.omni-team/templates/commands/`:
+Command files are rendered from `.omni-team/templates/commands/*.md` using these manifest scalars:
 
-```yaml
-commands:
-  test_backend:
-    description: "Run backend tests"
-    script: |
-      cd {{backend.root}} && {{backend.test_cmd}}
-```
+| Command | Driven by |
+|---|---|
+| `/test-backend` | `backend.activate_cmd`, `backend.test_cmd` |
+| `/test-frontend` | `frontend.test_cmd` |
+| `/migrate-new`, `/migrate-current` | `backend.activate_cmd`, `database.migrations.cmd_*`, `database.migrations.versions_dir` |
+| `/stack-up` | `backend.dev_url`, `backend.health_url`, `frontend.dev_url` |
 
-Bootstrap renders this to `.claude/commands/test-backend.md`, making `/test-backend` available in Claude Code.
+To customize a command, edit the relevant scalar in your manifest (e.g. `backend.test_cmd: "./mvnw -q clean verify"` for a Spring Boot project). To add a brand-new command, drop a `.md` file with `{{placeholder}}` references into `.omni-team/templates/commands/` and add its stem to `COMMAND_NAMES` in [.omni-team/bootstrap.py](.omni-team/bootstrap.py).
 
 ---
 
