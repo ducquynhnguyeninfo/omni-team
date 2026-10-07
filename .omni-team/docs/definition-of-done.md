@@ -9,7 +9,8 @@ Before declaring a change to omni-team itself complete:
 - [ ] **New predicate / signal / verdict token?** Unit test added; [routing.md](routing.md) or `_protocol.md` updated.
 - [ ] **Profile key or conventions section added/renamed?** `project/` templates, every `examples/*/` folder and [profile.md](profile.md) updated.
 - [ ] **Role added/removed?** Followed [roles.md](roles.md) §adding-a-role (protocol table, AGENTS.md, README, defaults order).
-- [ ] **Docs links resolve** in every file you touched.
+- [ ] **Docs links resolve** in every file you touched — and files shipped to projects (`RUNTIME_SET` in `lib/vendor.py`) link only to other shipped files.
+- [ ] **New runtime file** (read by agents or imported by `orchestrator.py`)? Added to `RUNTIME_SET`.
 - [ ] **No secrets**, no auto-commit/push anywhere, quality limits respected ([code-quality.md](code-quality.md)).
 - [ ] `VERSION` bumped for user-visible changes (major for breaking contract changes).
 

@@ -2,7 +2,7 @@
 
 You are working in a repository that vendors **omni-team**: a stack-agnostic team of planning and review roles. This file tells any agent (Claude Code, Codex, Gemini CLI, Cursor, Copilot, Aider, …) how to run the team. It is self-contained; deeper references are linked at the end.
 
-> Modifying the framework itself (files under `.omni-team/` other than `project/` and `runs/`)? Read [docs/maintaining.md](docs/maintaining.md) instead.
+> Changing the framework itself (anything under `.omni-team/` except `project/` and `runs/`)? Do it in the omni-team repository (see its `docs/maintaining.md`), not in a project's vendored copy — every upgrade overwrites those files.
 
 ## The model in one paragraph
 
@@ -17,7 +17,7 @@ You — the main agent — are the **implementer**. The team members are **an an
 | `project/profile.yaml` | Structured project facts — components, stacks, commands, URLs. `auto` = infer | **project** |
 | `project/conventions.md` | Project rulebook, one section per role | **project** |
 | `defaults.yaml` | Default signals, routing rules, engines | framework (override in profile) |
-| `skills/<name>/SKILL.md` | Entry-point workflows: `omni-setup`, `omni-task`, `omni-plan`, `omni-review`, `omni-ship`, and per-role `ba`, `architect`, `pm`, `release` | framework |
+| skills | Entry-point workflows, installed natively in `.claude/skills/` and `.agents/skills/` (`skills/<name>/SKILL.md` here only for tools without native skills): `omni-setup`, `omni-task`, `omni-plan`, `omni-review`, `omni-ship`, and per-role `ba`, `architect`, `pm`, `release` | framework |
 | `runs/<task-id>/` | Artifacts: one report file per role, `_state.json`, `_summary.md` | generated |
 
 ## The roster
@@ -43,7 +43,7 @@ Gate verdicts: `APPROVE` · `REQUEST_CHANGES` · `BLOCK` · `NOT_APPLICABLE` · 
 
 ### 0. Setup (once per project, optional)
 
-Copying `.omni-team/` into the repo is enough to start: every `auto` value is inferred at run time. For sharper reviews run the **`omni-setup`** skill (or follow `skills/omni-setup/SKILL.md`) to draft `project/profile.yaml` and `project/conventions.md`, and `python3 .omni-team/install.py` to register native sub-agents (from an omni-team checkout, `install.py --dir <project>` copies and registers in one step; `upgrade --dir <project>` updates later). Neither is required.
+Having `.omni-team/` in the repo is enough to start: every `auto` value is inferred at run time. It is put there — and native sub-agents and skills are registered — by the omni-team installer — `python3 <omni-team checkout>/.omni-team/install.py --dir <project>` (the checkout path is `source` in `.omni-team/.vendor.json`); `install.py upgrade --dir <project>` updates it later. For sharper reviews run the **`omni-setup`** skill once to draft `project/profile.yaml` and `project/conventions.md`.
 
 ### 1. Classify
 
@@ -114,12 +114,12 @@ Focus / notes from the implementer: <optional>
 
 ### Claude Code
 
-- **Registered** (after `python3 .omni-team/install.py --tools claude`): use the Agent/Task tool with `subagent_type: "<role>"` and the invocation block as the prompt. Skills appear as `/omni-task`, `/omni-review`, ….
+- **Registered** (after the installer ran with the `claude` tool, the default): use the Agent/Task tool with `subagent_type: "<role>"` and the invocation block as the prompt. Skills appear as `/omni-task`, `/omni-review`, ….
 - **Not registered**: use a general-purpose sub-agent with the prompt "Read `.omni-team/team/_protocol.md` and `.omni-team/team/<role>.md`, act strictly as that role, and review: <invocation block>".
 
 ### Codex
 
-- **Registered** (after `install.py --tools codex`): custom agents live in `.codex/agents/<role>.toml` (read-only sandbox, reasoning effort by tier). Ask Codex to spawn the `<role>` agent with the invocation block. Skills are in `.agents/skills/`.
+- **Registered** (after the installer ran with the `codex` tool, the default): custom agents live in `.codex/agents/<role>.toml` (read-only sandbox, reasoning effort by tier). Ask Codex to spawn the `<role>` agent with the invocation block. Skills are in `.agents/skills/`.
 - **Not registered**: spawn a sub-agent with the same "read the protocol and role file" prompt, or run the gate headless: `python3 .omni-team/orchestrator.py run-gate <role> --task <id> --engine codex`.
 
 ### Tools without native sub-agents (Gemini CLI, Cursor, Copilot, Aider, …)
@@ -149,10 +149,9 @@ Runs Gate 0 (project checks), then the routed gates stage by stage — gates ins
 
 ## Reference
 
-- [README.md](README.md) — human quick start
 - [docs/workflow.md](docs/workflow.md) — the flow in detail, artifacts, retry budget
 - [docs/roles.md](docs/roles.md) — roster, ownership, adding a role
 - [docs/profile.md](docs/profile.md) — `profile.yaml` and `conventions.md` schema, merge rules
 - [docs/routing.md](docs/routing.md) — signals, predicates, routing rules
-- [docs/adapters.md](docs/adapters.md) — what install.py generates per tool; engines
-- [docs/maintaining.md](docs/maintaining.md) — working on the framework itself
+- [docs/adapters.md](docs/adapters.md) — what the installer generates per tool; engines
+- Framework internals and maintenance: the omni-team repository (`README.md`, `docs/maintaining.md`, `examples/`)

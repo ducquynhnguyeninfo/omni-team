@@ -8,7 +8,7 @@ Routing is **data**: named *signals* detect what a diff touches; *rules* map sig
 
 - base: `--base`, else `orchestrator.base_ref` (`auto` → first of `origin/HEAD`, `origin/main`, `origin/master`, `main`, `master`);
 - compared from the merge-base of base and `HEAD` **to the working tree** (staged, unstaged and untracked files included) unless `--committed-only` or `include_uncommitted: false`;
-- `orchestrator.exclude_paths` removed (default: `.omni-team/**` — the vendored framework and its run artifacts are not project code; see [maintaining.md](maintaining.md) for reviewing the framework itself).
+- `orchestrator.exclude_paths` removed (default: `.omni-team/**` — the vendored framework and its run artifacts are not project code; see the omni-team repository's `docs/maintaining.md` for reviewing the framework itself).
 
 "LoC" means **added lines**.
 

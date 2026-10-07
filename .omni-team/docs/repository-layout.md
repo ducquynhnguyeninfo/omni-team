@@ -45,6 +45,23 @@ Generated in the **host project root** by `install.py` (build output — edit th
                                                               GEMINI.md  (pointer block)
 ```
 
+## What a project receives (`install.py --dir`)
+
+```
+<project>/.omni-team/                 slim copy — RUNTIME_SET in lib/vendor.py
+├── AGENTS.md  CLAUDE.md  GEMINI.md   agent entry points
+├── VERSION  requirements.txt  .gitignore  .vendor.json (manifest: version, source, files)
+├── defaults.yaml  orchestrator.py
+├── lib/                              orchestrator modules only (no adapters.py / vendor.py)
+├── team/                             roles + protocol (orchestrator prompts, fallback invocation)
+├── docs/                             workflow, roles, profile, routing, adapters
+├── skills/                           only for tools without native skills (gemini, agents-md)
+├── project/                          the project's profile.yaml + conventions.md (never overwritten)
+└── runs/                             artifacts (never overwritten)
+```
+
+Not shipped: `install.py`, `lib/adapters.py`, `lib/vendor.py`, `tests/`, `examples/`, `README.md`, maintainer docs. `--full` ships everything.
+
 ## What goes where
 
 | Kind of knowledge | Location |

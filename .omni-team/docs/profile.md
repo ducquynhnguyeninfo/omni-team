@@ -74,7 +74,7 @@ routing:
       agents_add: [security-engineer, perf-engineer]
 ```
 
-More: [`../examples/`](../examples/).
+More: the `examples/` folder of the omni-team repository.
 
 ## `conventions.md`
 

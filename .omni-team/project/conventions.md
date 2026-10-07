@@ -12,7 +12,7 @@ rules the way you would explain them to a new senior engineer.
   "SHOULD" → request changes.
 - Point to files instead of copying them ("error type: src/errors.ts").
 - Run the `omni-setup` skill to have an agent draft this from the repository.
-See ../examples/*/conventions.md for filled-in samples.
+Filled-in samples: examples/*/conventions.md in the omni-team repository.
 -->
 
 ## All roles

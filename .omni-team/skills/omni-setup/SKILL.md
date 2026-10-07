@@ -16,7 +16,7 @@ Goal: replace `auto` values with verified facts, so every role starts with accur
    - Only add `signals` / `routing` overrides when the defaults clearly miss this repo's layout (e.g. migrations in an unusual folder).
 3. **Draft `conventions.md`** — keep the section headings; fill each with rules you can point to in code or docs: layering and where code lives, error contract, naming, soft-delete/tenancy/idempotency invariants, i18n locales and catalogue paths, design system, auth guard helpers, PII fields, performance budgets, test layout, how to start the stack for smoke tests. Cite files (`see src/errors.ts`). Leave `(none)` where nothing applies.
 4. **Validate** — if Python + PyYAML are available: `python3 .omni-team/orchestrator.py classify --task setup-check` must exit 0.
-5. **Register sub-agents** (ask first if the user did not request it): `python3 .omni-team/install.py` (Claude Code + Codex) or `--tools all`. It is stdlib-only and only touches files it generated, plus a short pointer block in `CLAUDE.md` / `AGENTS.md`.
+5. **Check registration** — if `.claude/agents/` / `.codex/agents/` lack the omni-team roles, tell the user to run the omni-team installer — `python3 <omni-team checkout>/.omni-team/install.py --dir <project>` (the checkout path is `source` in `.omni-team/.vendor.json`) (add `--tools all` for Gemini / generic `AGENTS.md`). Do not run it yourself unless asked.
 6. **Report** — what you filled, what you inferred (with evidence), and the `TODO verify` items for the human.
 
-Do not modify anything outside `.omni-team/project/` (and the files install.py writes, if approved). Do not commit.
+Do not modify anything outside `.omni-team/project/`. Do not commit.

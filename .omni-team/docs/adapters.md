@@ -1,6 +1,6 @@
 # Adapters — how omni-team plugs into each tool
 
-One canonical source (`team/`, `skills/`), several native formats. [`../install.py`](../install.py) (stdlib only) generates the native files; [`../orchestrator.py`](../orchestrator.py) runs roles headless through any CLI "engine".
+One canonical source (`team/`, `skills/`), several native formats. `install.py` (stdlib only, in the omni-team checkout) generates the native files; [`../orchestrator.py`](../orchestrator.py) runs roles headless through any CLI "engine".
 
 ## install.py
 
@@ -14,7 +14,8 @@ python3 .omni-team/install.py [install|init|upgrade|uninstall] [--dir <project>]
 
 | Option | Effect |
 |---|---|
-| `--dir <project>` | **vendor** the framework into `<project>/.omni-team/` (fresh copy, or upgrade of an existing copy: framework files replaced/removed, `project/` and `runs/` preserved; downgrade needs `--force`), then register the adapters in `<project>/`. Warns when `<project>` is not a git repository root |
+| `--dir <project>` | **vendor** the framework into `<project>/.omni-team/` — the *slim runtime set* (`RUNTIME_SET` in `lib/vendor.py`; `skills/` added only for `gemini` / `agents-md`, which lack native skills) — or upgrade an existing copy (shipped files replaced, files no longer shipped removed per `.vendor.json`, `project/` and `runs/` preserved; downgrade needs `--force`), then register the adapters in `<project>/`. Warns when `<project>` is not a git repository root |
+| `--full` | with `--dir`: vendor the whole framework (installer, tests, examples, all docs) |
 | `--project-root <dir>` | register adapters into `<dir>` without copying anything (the framework is used where it is) |
 | neither | register adapters into the folder that contains this `.omni-team/` |
 | `init` | alias of `install` |

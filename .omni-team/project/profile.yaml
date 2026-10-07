@@ -9,7 +9,7 @@
 # Free-form rules (architecture, must-nots, per-role checks) go in
 # conventions.md next to this file. Framework defaults (signals, routing,
 # orchestrator engines) live in ../defaults.yaml; override any of those
-# top-level keys here. Schema: ../docs/profile.md. Examples: ../examples/.
+# top-level keys here. Schema: ../docs/profile.md. Examples: examples/ in the omni-team repository.
 # =============================================================================
 
 version: 1

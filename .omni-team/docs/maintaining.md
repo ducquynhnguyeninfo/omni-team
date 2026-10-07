@@ -74,3 +74,11 @@ Migrating a v1 manifest: move stack facts (paths, commands, URLs) into `componen
 |---|---|
 | `install.py --dir <project>` vendors the framework (fresh or upgrade) and installs in one step; commands `install`/`init`/`upgrade`/`uninstall` | manual `cp -R` no longer needed; `--project-root` keeps its old meaning (adapters only) |
 | `upgrade` preserves `project/` and `runs/`, removes stale framework files, refuses downgrades without `--force` | local edits to framework files (e.g. `defaults.yaml`) are overwritten — put overrides in `project/profile.yaml` |
+
+## Compatibility notes (v2.3 → v2.4)
+
+| Change | Impact |
+|---|---|
+| `install.py --dir` vendors a **slim** runtime set (`RUNTIME_SET` in `lib/vendor.py`); `--full` keeps the old behaviour | projects no longer carry the installer, tests, examples or maintainer docs; install/upgrade from the omni-team checkout |
+| `.omni-team/.vendor.json` manifest; upgrades remove only files the previous install shipped (pre-2.4 copies without a manifest are slimmed: everything except `project/` and `runs/` not in the new set is removed) | files you add inside `.omni-team/` survive upgrades |
+| Runtime docs no longer link to `README.md`, `docs/maintaining.md`, `examples/` | they name the omni-team repository instead |
