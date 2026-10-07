@@ -38,6 +38,7 @@ What each tool target writes (paths relative to the project root):
 from __future__ import annotations
 
 import argparse
+import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -59,9 +60,11 @@ POINTER_FILES = {"claude": "CLAUDE.md", "codex": "AGENTS.md", "gemini": "GEMINI.
 
 @dataclass
 class Action:
-    kind: str            # write | delete | pointer | unpointer
+    kind: str                    # write | copy | delete | pointer | unpointer
     path: Path
     content: str = ""
+    src: Optional[Path] = None   # copy: file copied byte-for-byte (skill scripts, data, licences)
+    stop: Optional[Path] = None  # delete: prune emptied parent folders up to (not including) this one
 
 
 class InstallError(Exception):
@@ -85,28 +88,55 @@ def _stale_managed(directory: Path, pattern: str, keep: List[Path]) -> List[Path
     return [p for p in directory.glob(pattern) if p not in keep and adapters.is_managed(p)]
 
 
+def _stale_skill_files(skills_dir: Path, keep: List[Path]) -> List[Action]:
+    """Every file inside a managed skill folder (its SKILL.md carries the marker) that is not planned."""
+    if not skills_dir.exists():
+        return []
+    stale = []
+    for skill_md in skills_dir.glob("*/SKILL.md"):
+        if adapters.is_managed(skill_md):
+            stale += [p for p in skill_md.parent.rglob("*") if p.is_file() and p not in keep]
+    return [Action("delete", p, stop=skills_dir) for p in sorted(stale)]
+
+
+def selected_skills(args: argparse.Namespace) -> list:
+    skills = load_skills()
+    if args.skills in (None, "", "all"):
+        return skills
+    wanted = [n.strip() for n in args.skills.split(",") if n.strip()]
+    unknown = sorted(set(wanted) - {s.name for s in skills})
+    if unknown:
+        raise InstallError(f"unknown skill(s): {', '.join(unknown)} (available: {', '.join(s.name for s in skills)})")
+    return [s for s in skills if s.name in wanted]
+
+
+def _skill_actions(skills_dir: Path, args: argparse.Namespace) -> List[Action]:
+    actions = []
+    for skill in selected_skills(args):
+        actions.append(Action("write", skills_dir / skill.name / "SKILL.md", adapters.render_skill(skill)))
+        actions += [Action("copy", skills_dir / skill.name / rel, src=skill.source.parent / rel, stop=skills_dir)
+                    for rel in vendor.framework_files(skill.source.parent) if rel != Path("SKILL.md")]
+    return actions
+
+
+def _plan_tool(agents_dir: Path, agent_suffix: str, render, skills_dir: Path, args: argparse.Namespace) -> List[Action]:
+    actions = [Action("write", agents_dir / f"{r.name}{agent_suffix}", render(r)) for r in load_roles()]
+    actions += _skill_actions(skills_dir, args)
+    keep = [a.path for a in actions]
+    actions += [Action("delete", p) for p in _stale_managed(agents_dir, f"*{agent_suffix}", keep)]
+    return actions + _stale_skill_files(skills_dir, keep)
+
+
 def plan_claude(root: Path, args: argparse.Namespace) -> List[Action]:
     protocol, models = load_protocol(), parse_tiers(args.claude_models, adapters.DEFAULT_CLAUDE_MODELS)
-    agents_dir, skills_dir = root / ".claude" / "agents", root / ".claude" / "skills"
-    actions = [Action("write", agents_dir / f"{r.name}.md", adapters.render_claude_agent(r, protocol, models))
-               for r in load_roles()]
-    actions += [Action("write", skills_dir / s.name / "SKILL.md", adapters.render_skill(s)) for s in load_skills()]
-    keep = [a.path for a in actions]
-    actions += [Action("delete", p) for p in _stale_managed(agents_dir, "*.md", keep)]
-    actions += [Action("delete", p) for p in _stale_managed(skills_dir, "*/SKILL.md", keep)]
-    return actions
+    return _plan_tool(root / ".claude" / "agents", ".md",
+                      lambda r: adapters.render_claude_agent(r, protocol, models), root / ".claude" / "skills", args)
 
 
 def plan_codex(root: Path, args: argparse.Namespace) -> List[Action]:
     protocol, efforts = load_protocol(), parse_tiers(args.codex_effort, adapters.DEFAULT_CODEX_EFFORT)
-    agents_dir, skills_dir = root / ".codex" / "agents", root / ".agents" / "skills"
-    actions = [Action("write", agents_dir / f"{r.name}.toml", adapters.render_codex_agent(r, protocol, efforts))
-               for r in load_roles()]
-    actions += [Action("write", skills_dir / s.name / "SKILL.md", adapters.render_skill(s)) for s in load_skills()]
-    keep = [a.path for a in actions]
-    actions += [Action("delete", p) for p in _stale_managed(agents_dir, "*.toml", keep)]
-    actions += [Action("delete", p) for p in _stale_managed(skills_dir, "*/SKILL.md", keep)]
-    return actions
+    return _plan_tool(root / ".codex" / "agents", ".toml",
+                      lambda r: adapters.render_codex_agent(r, protocol, efforts), root / ".agents" / "skills", args)
 
 
 PLANNERS = {"claude": plan_claude, "codex": plan_codex}
@@ -125,10 +155,15 @@ def plan_install(root: Path, tools: List[str], args: argparse.Namespace) -> List
 
 def plan_uninstall(root: Path, tools: List[str]) -> List[Action]:
     dirs = {
-        "claude": [(root / ".claude" / "agents", "*.md"), (root / ".claude" / "skills", "*/SKILL.md")],
-        "codex": [(root / ".codex" / "agents", "*.toml"), (root / ".agents" / "skills", "*/SKILL.md")],
+        "claude": (root / ".claude" / "agents", "*.md", root / ".claude" / "skills"),
+        "codex": (root / ".codex" / "agents", "*.toml", root / ".agents" / "skills"),
     }
-    actions = [Action("delete", p) for t in tools for d, pat in dirs.get(t, []) for p in _stale_managed(d, pat, [])]
+    actions: List[Action] = []
+    for tool in tools:
+        if tool in dirs:
+            agents_dir, pattern, skills_dir = dirs[tool]
+            actions += [Action("delete", p) for p in _stale_managed(agents_dir, pattern, [])]
+            actions += _stale_skill_files(skills_dir, [])
     for name in dict.fromkeys(POINTER_FILES[t] for t in tools):
         if (root / name).exists():
             actions.append(Action("unpointer", root / name))
@@ -151,10 +186,16 @@ def _apply(action: Action) -> str:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(action.content, encoding="utf-8")
         return "wrote"
+    if action.kind == "copy":
+        path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(action.src, path)
+        return "copied"
     if action.kind == "delete":
         path.unlink()
-        if path.name == "SKILL.md" and not any(path.parent.iterdir()):
-            path.parent.rmdir()
+        parent = path.parent
+        while action.stop is not None and parent != action.stop and parent.exists() and not any(parent.iterdir()):
+            parent.rmdir()
+            parent = parent.parent
         return "removed"
     existing = path.read_text(encoding="utf-8") if path.exists() else None
     if action.kind == "pointer":
@@ -166,6 +207,21 @@ def _apply(action: Action) -> str:
         return "unpointer"
     path.unlink()
     return "removed"
+
+
+def _report(actions: List[Action], root: Path, dry_run: bool) -> None:
+    """Apply (unless dry-run) and print; files inside one skill folder are summarised on one line."""
+    prefix = "[dry-run] " if dry_run else ""
+    grouped: Dict[tuple, int] = {}
+    for action in actions:
+        label = action.kind if dry_run else _apply(action)
+        if action.kind in ("copy", "delete") and action.stop is not None:
+            folder = action.stop / action.path.relative_to(action.stop).parts[0]
+            grouped[(label, folder)] = grouped.get((label, folder), 0) + 1
+            continue
+        print(f"   {prefix}{label:9s} {_display(action.path, root)}")
+    for (label, folder), count in grouped.items():
+        print(f"   {prefix}{label:9s} {_display(folder, root)}/  ({count} file{'s' if count > 1 else ''})")
 
 
 def _display(path: Path, root: Path) -> str:
@@ -186,6 +242,8 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     p.add_argument("--project-root", type=Path,
                    help="register adapters into this root WITHOUT copying the framework "
                         "(default: the folder containing .omni-team/)")
+    p.add_argument("--skills", default="all",
+                   help="comma list of skills to install (default: all) — e.g. omni-task,omni-review,pm,drawio-skill")
     p.add_argument("--claude-models", help="tier→model, e.g. deep=opus,standard=sonnet,fast=haiku")
     p.add_argument("--codex-effort", help="tier→reasoning effort, e.g. deep=high,standard=medium,fast=low")
     p.add_argument("--no-pointer", action="store_true", help="do not touch CLAUDE.md / AGENTS.md / GEMINI.md")
@@ -271,14 +329,13 @@ def main(argv: Optional[List[str]] = None) -> int:
             print(f"   ⚠️  {warning}")
 
     print(f"omni-team {'uninstall' if args.uninstall else 'install'} → {root}  (tools: {', '.join(tools)})")
-    for action in actions:
-        label = action.kind if args.dry_run else _apply(action)
-        print(f"   {'[dry-run] ' if args.dry_run else ''}{label:9s} {_display(action.path, root)}")
+    _report(actions, root, args.dry_run)
     if args.uninstall and args.dir:
         print(f"\nThe vendored framework stays in {root / vendor.FOLDER}; delete it yourself if you no longer need it.")
     if not args.uninstall and not args.dry_run:
         print(f"\nNext: open {root} in your agent, run the `omni-setup` skill once (optional), then `omni-task <request>`.")
-        print(f"Agent manual: {_display(root / vendor.FOLDER / 'AGENTS.md', Path.cwd())}")
+        manual = root / vendor.FOLDER / "AGENTS.md"
+        print(f"Agent manual: {_display(manual if manual.exists() else FRAMEWORK_ROOT / 'AGENTS.md', Path.cwd())}")
     return 0
 
 

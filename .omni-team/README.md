@@ -43,6 +43,7 @@ Remove the adapters with `install.py uninstall --dir <project>` (the vendored fo
 | `/architect <question>` | Architect: ADR with options and trade-offs, or an architecture review of the current change |
 | `/pm <request>` | Project Manager: charter, roadmap, status/weekly report, RAID, prioritise, tasking, retro |
 | `/release` | Release Manager: version bump, changelog, release notes, deploy/rollback plan, go/no-go |
+| `drawio-skill` | Library skill: draw.io diagrams (architecture, ER, sequence, C4, BPMN, cloud from IaC…) exported to PNG/SVG/PDF — needs the draw.io desktop CLI |
 
 Reports land in `.omni-team/runs/<task-id>/` — one file per role, plus `_summary.md`. Commit them as an audit trail or git-ignore them; your choice.
 
@@ -85,6 +86,15 @@ Roles carry no stack knowledge of their own beyond general engineering expertise
 
 Samples: [`examples/`](examples/) (FastAPI + Next.js web app, Go CLI, Python library). Schema: [docs/profile.md](docs/profile.md). Routing: [docs/routing.md](docs/routing.md).
 
+## Skills catalogue
+
+`skills/<name>/` holds two kinds of skills, installed the same way (the whole folder — scripts, data and licences included — goes to `.claude/skills/` and `.agents/skills/`):
+
+- **Workflow skills** (`omni-*`, `ba`, `architect`, `pm`, `release`) drive the team.
+- **Library skills** add capabilities any role or the main agent can use. Third-party ones are vendored unmodified with their `LICENSE` and an `UPSTREAM.md` (source, pinned commit, requirements): `drawio-skill` (MIT, Agents365-ai).
+
+Install a subset with `--skills omni-task,omni-review,pm,drawio-skill`; skills not selected are removed from the project if omni-team installed them. Only add skills whose licence allows redistribution — proprietary skills (e.g. Anthropic's document skills) belong in the user's own Claude setup (plugin marketplace), not in this repository.
+
 ## Upgrade
 
 ```bash
@@ -101,7 +111,7 @@ Shipped framework files are replaced (and ones no longer shipped are removed —
 ├── AGENTS.md  CLAUDE.md  GEMINI.md   entry points for agents (CLAUDE/GEMINI import AGENTS.md)
 ├── README.md                          this file
 ├── team/                              canonical role definitions + shared _protocol.md
-├── skills/                            omni-setup · omni-task · omni-plan · omni-review · omni-ship · ba · architect · pm · release
+├── skills/                            workflows (omni-*, ba, architect, pm, release) + library skills (drawio-skill)
 ├── project/                           YOUR profile.yaml + conventions.md
 ├── defaults.yaml                      default signals, routing, engines (data, not code)
 ├── examples/                          sample project/ folders for different stacks

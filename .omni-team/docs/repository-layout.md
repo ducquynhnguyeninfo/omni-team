@@ -17,7 +17,8 @@
 │   └── smoke-tester.md  release-manager.md
 │
 ├── skills/                       workflow entry points (SKILL.md works in Claude Code and Codex)
-│   └── omni-setup/  omni-task/  omni-plan/  omni-review/  omni-ship/  ba/  architect/  pm/  release/
+│   ├── omni-setup/  omni-task/  omni-plan/  omni-review/  omni-ship/  ba/  architect/  pm/  release/
+│   └── drawio-skill/             library skill (MIT, vendored with LICENSE + UPSTREAM.md)
 │
 ├── project/                      ← the ONLY folder a host project edits
 │   ├── profile.yaml              structured facts (auto by default)

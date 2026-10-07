@@ -17,7 +17,7 @@ You — the main agent — are the **implementer**. The team members are **an an
 | `project/profile.yaml` | Structured project facts — components, stacks, commands, URLs. `auto` = infer | **project** |
 | `project/conventions.md` | Project rulebook, one section per role | **project** |
 | `defaults.yaml` | Default signals, routing rules, engines | framework (override in profile) |
-| skills | Entry-point workflows, installed natively in `.claude/skills/` and `.agents/skills/` (`skills/<name>/SKILL.md` here only for tools without native skills): `omni-setup`, `omni-task`, `omni-plan`, `omni-review`, `omni-ship`, and per-role `ba`, `architect`, `pm`, `release` | framework |
+| skills | Entry-point workflows, installed natively in `.claude/skills/` and `.agents/skills/` (`skills/<name>/SKILL.md` here only for tools without native skills): `omni-setup`, `omni-task`, `omni-plan`, `omni-review`, `omni-ship`, per-role `ba`, `architect`, `pm`, `release`, and library skills such as `drawio-skill` (diagrams — useful for `architect` sketches and `pm`/`ba` documents) | framework |
 | `runs/<task-id>/` | Artifacts: one report file per role, `_state.json`, `_summary.md` | generated |
 
 ## The roster

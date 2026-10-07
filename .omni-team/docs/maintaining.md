@@ -82,3 +82,12 @@ Migrating a v1 manifest: move stack facts (paths, commands, URLs) into `componen
 | `install.py --dir` vendors a **slim** runtime set (`RUNTIME_SET` in `lib/vendor.py`); `--full` keeps the old behaviour | projects no longer carry the installer, tests, examples or maintainer docs; install/upgrade from the omni-team checkout |
 | `.omni-team/.vendor.json` manifest; upgrades remove only files the previous install shipped (pre-2.4 copies without a manifest are slimmed: everything except `project/` and `runs/` not in the new set is removed) | files you add inside `.omni-team/` survive upgrades |
 | Runtime docs no longer link to `README.md`, `docs/maintaining.md`, `examples/` | they name the omni-team repository instead |
+
+## Compatibility notes (v2.4 → v2.5)
+
+| Change | Impact |
+|---|---|
+| Skills are installed as whole folders (scripts, data, licences copied byte-for-byte); managed skill folders are cleaned file by file | multi-file skills work in Claude Code and Codex |
+| `install.py --skills a,b,c` selects skills (default `all`) | deselected managed skills are removed from the project |
+| Library skill `drawio-skill` (MIT, upstream Agents365-ai, pinned in `skills/drawio-skill/UPSTREAM.md`) | needs the draw.io desktop CLI; Graphviz optional |
+| Third-party skills must ship `LICENSE` + `UPSTREAM.md` (a test enforces it) and have a licence that allows redistribution | do not add proprietary skills to this repository |

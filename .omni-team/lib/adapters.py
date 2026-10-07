@@ -113,9 +113,13 @@ def remove_block(existing: str) -> str:
     return (before + "\n\n" + after).strip("\n") + "\n" if before or after else ""
 
 
+MARKER_SCAN_BYTES = 256_000  # third-party skills can carry very long frontmatter before the marker
+
+
 def is_managed(path: Path) -> bool:
     try:
-        head = path.read_text(encoding="utf-8")[:4000]
+        with path.open("r", encoding="utf-8") as fh:
+            head = fh.read(MARKER_SCAN_BYTES)
     except (OSError, UnicodeDecodeError):
         return False
     return MARKER in head

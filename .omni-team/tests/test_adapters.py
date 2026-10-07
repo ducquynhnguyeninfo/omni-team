@@ -28,9 +28,14 @@ class CanonicalSourcesTest(unittest.TestCase):
         self.assertGreaterEqual(len(roles), 12)
         for role in roles:
             self.assertIn("VERDICT:", role.body, f"{role.name} must document its verdict line")
-        self.assertEqual({s.name for s in load_skills()},
-                         {"omni-setup", "omni-task", "omni-plan", "omni-review", "omni-ship",
-                          "ba", "architect", "pm", "release"})
+        self.assertLessEqual({"omni-setup", "omni-task", "omni-plan", "omni-review", "omni-ship",
+                              "ba", "architect", "pm", "release", "drawio-skill"},
+                             {s.name for s in load_skills()})
+
+    def test_third_party_skills_carry_their_licence(self):
+        for skill in load_skills():
+            if (skill.source.parent / "UPSTREAM.md").exists():
+                self.assertTrue((skill.source.parent / "LICENSE").exists(), f"{skill.name} lacks its LICENSE")
 
     def test_frontmatter_errors_are_loud(self):
         with self.assertRaises(RoleError):
@@ -105,6 +110,37 @@ class InstallTest(unittest.TestCase):
             self.assertFalse((root / ".claude/agents/code-reviewer.md").exists())
             self.assertEqual((root / "AGENTS.md").read_text(encoding="utf-8"), "# Host rules\n")
             self.assertFalse((root / "CLAUDE.md").exists())
+
+    def test_multi_file_skills_install_update_and_uninstall(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.assertEqual(self.run_install(root), 0)
+            skill = root / ".claude/skills/drawio-skill"
+            self.assertTrue((skill / "scripts/autolayout.py").exists())
+            self.assertTrue((skill / "LICENSE").exists())
+            self.assertEqual((skill / "data/shape-index.json.gz").read_bytes()[:2], b"\x1f\x8b", "binary copied intact")
+            self.assertTrue((root / ".agents/skills/drawio-skill/scripts/autolayout.py").exists())
+            leftover = skill / "scripts/removed-upstream.py"
+            leftover.write_text("old")
+            self.assertEqual(self.run_install(root), 0, "re-install must not flag its own skill files")
+            self.assertFalse(leftover.exists(), "files no longer shipped in a managed skill are removed")
+            self.assertEqual(self.run_install(root, "--skills", "omni-task,pm"), 0)
+            self.assertFalse(skill.exists(), "deselected managed skills are removed with their folders")
+            self.assertTrue((root / ".claude/skills/pm/SKILL.md").exists())
+            self.assertEqual(self.run_install(root, "--uninstall"), 0)
+            self.assertEqual(list((root / ".claude/skills").glob("*")) if (root / ".claude/skills").exists() else [], [])
+
+    def test_unknown_skill_and_foreign_skill_folder(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            with redirect_stdout(io.StringIO()), redirect_stderr_null():
+                self.assertEqual(install.main(["--project-root", tmp, "--skills", "nope"]), 2)
+            mine = root / ".claude/skills/drawio-skill/SKILL.md"
+            mine.parent.mkdir(parents=True)
+            mine.write_text("---\nname: drawio-skill\n---\nmy own\n")
+            with redirect_stdout(io.StringIO()), redirect_stderr_null():
+                self.assertEqual(install.main(["--project-root", tmp, "--tools", "claude"]), 2)
+            self.assertIn("my own", mine.read_text())
 
     def test_refuses_to_overwrite_foreign_files(self):
         with tempfile.TemporaryDirectory() as tmp:
