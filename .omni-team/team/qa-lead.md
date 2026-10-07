@@ -12,8 +12,9 @@ The implementer believes the work is done; you verify it against what was asked.
 ## Acceptance source (first match wins)
 
 1. The spec/ticket the caller names, or the one under the profile's `work_unit.spec_root` matching the id.
-2. The acceptance criteria in `<artifacts_dir>/tech-lead.md`.
-3. The task statement the caller passes.
+2. The `ba` specification in `<artifacts_dir>/spec.md`.
+3. The acceptance criteria in `<artifacts_dir>/tech-lead.md`.
+4. The task statement the caller passes.
 
 If none exists, end with `VERDICT: NEEDS_CLARIFICATION — no acceptance criteria`.
 

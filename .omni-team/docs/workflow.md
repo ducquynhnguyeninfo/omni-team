@@ -5,7 +5,7 @@ How a project that vendors omni-team moves one work item from request to ship. T
 ## Phases
 
 ```
-Classify ─► Plan ─► Implement ─► Gate 0 ─► Review ─► Accept ─► Hand off ─► HUMAN GATE
+Classify ─► Define ─► Design ─► Plan ─► Implement ─► Gate 0 ─► Review ─► Accept ─► Hand off ─► HUMAN GATE ─► Release
                          ▲          │         │
                          └─ fix ◄───┴─────────┘   REQUEST_CHANGES / BLOCK (≤ 3 rounds per gate)
 ```
@@ -13,6 +13,8 @@ Classify ─► Plan ─► Implement ─► Gate 0 ─► Review ─► Accept 
 | Phase | Who | Output |
 |---|---|---|
 | Classify | main agent (+ `orchestrator.py classify`) | task id, trivial vs non-trivial, gate list |
+| Define | `ba` (no testable spec) | `<spec_root>/<id>.md` or `runs/<id>/spec.md` — stories, rules, Given/When/Then AC |
+| Design | `architect` DESIGN (structural change only) | ADR in the project's ADR folder or `runs/<id>/adr.md` |
 | Plan | `tech-lead` (+ `pm` TASKING for team delivery) | `runs/<id>/tech-lead.md` — phases, acceptance criteria, open questions; `runs/<id>/tasks/` — assignable tickets |
 | Implement | main agent or human | code + green project checks |
 | Gate 0 | project checks (lint / typecheck / test) | `runs/<id>/_checks.md` |
@@ -20,6 +22,7 @@ Classify ─► Plan ─► Implement ─► Gate 0 ─► Review ─► Accept 
 | Accept | `qa-lead`, then `smoke-tester` | acceptance table, smoke evidence |
 | Hand off | main agent | `runs/<id>/_summary.md`, message to the human |
 | Ship | **human only** | commit, push, merge |
+| Release | `release-manager` PREPARE → READINESS; humans tag and deploy | `runs/release-<version>/release-manager.md` |
 
 ## Project management (`pm`)
 

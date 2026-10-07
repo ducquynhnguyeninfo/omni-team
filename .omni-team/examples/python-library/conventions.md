@@ -5,6 +5,10 @@
 - The public API is everything re-exported from `src/tidyframe/__init__.py` plus `src/tidyframe/api/`. Anything else is private even without a leading underscore.
 - Versioning is SemVer; breaking the public API requires a major version and a deprecation period of one minor release.
 
+## Requirements
+
+- Public-API changes start as an RFC in `docs/rfcs/NNNN-<slug>.md` (motivation, proposed API with examples, alternatives, migration). Small fixes use the GitHub issue as spec.
+
 ## Architecture
 
 - `api/` — thin public functions; `core/` — engine-independent logic; `adapters/pandas.py`, `adapters/polars.py` — engine specifics, imported lazily so the extras stay optional.
@@ -56,6 +60,11 @@
 
 - Two core maintainers (review capacity ~5 h/week each); roadmap in `docs/roadmap.md`, one minor release per quarter.
 - Prioritise with RICE; deprecations must be scheduled one minor release ahead. Reports in English, audience = contributors.
+
+## Release
+
+- Version in `src/tidyframe/__about__.py` (hatch); tag `vX.Y.Z` triggers the PyPI publish workflow. `CHANGELOG.md`, Keep a Changelog.
+- Deprecations ship one minor release before removal; removals only in a major. Release notes in English for library users.
 
 ## Glossary
 

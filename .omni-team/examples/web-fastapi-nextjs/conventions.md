@@ -5,6 +5,12 @@
 - Specs live in `document/sprints/<sprint>/<MP-ID>/`; read the companion `plan.md` / `architecture.md` when present.
 - Codex cross-check is the human gate after `qa-lead` and `smoke-tester`.
 
+## Requirements
+
+- One spec per MP in `document/sprints/sprint-N/<MP-ID>/<MP-ID>.md`; mirror `MP-04A` (goal, stories, numbered fields table, AC).
+- AC in Given/When/Then, numbered `AC-1…`; every screen spec has a numbered field list (label, hint, required, validation).
+- Actors: public visitor, customer, admin. Specs in English; customer-facing copy in en/vi/fr.
+
 ## Architecture
 
 - Backend layer order: `models → schemas → repos → services → routers → register in main.py`.
@@ -100,6 +106,12 @@
 - Stakeholders: DM, BUL, customer PO. Management reports (status, weekly) in **Vietnamese**, business altitude.
 - PM documents: `document/pm/` (e.g. `document/pm/weekly-2026-W41.md`); TASKING output under the MP's run folder.
 - Estimates in days, O/L/P.
+
+## Release
+
+- Semver tags `vX.Y.Z` on `main`; `CHANGELOG.md` (Keep a Changelog). Environments: staging → production, backend before frontend.
+- Alembic migrations run in the deploy pipeline before the new backend version; non-backward-compatible changes use expand → migrate → contract across two releases.
+- Release notes for DM/BUL and the customer in **Vietnamese**, business altitude. Go/no-go approved by the DM.
 
 ## Glossary
 

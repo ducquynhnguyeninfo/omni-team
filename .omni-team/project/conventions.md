@@ -19,10 +19,18 @@ See ../examples/*/conventions.md for filled-in samples.
 
 (none)
 
+## Requirements
+
+<!-- For the ba role: spec template or example spec to mirror, user-story and
+acceptance-criteria style, personas/actors, where specs live, spec language. -->
+
+(none)
+
 ## Architecture
 
 <!-- Components, layers and allowed dependency directions; where each kind of
-code lives; the reference feature new work should mirror. -->
+code lives; the reference feature new work should mirror; ADR folder and
+format (for the architect role). -->
 
 (none)
 
@@ -94,6 +102,15 @@ smoke-tester may start services itself. -->
 h/week, focus factor, WIP limit), cadence (sprints, milestones, release dates),
 stakeholders and report audience, report language, estimation unit, where the
 tracker and PM documents live (e.g. docs/pm/), reporting template. -->
+
+(none)
+
+## Release
+
+<!-- For the release-manager role: versioning scheme, changelog file/format,
+release branches and tag format, environments and deploy order, deploy and
+rollback commands or pipeline, feature-flag system, migration policy,
+release-notes audience and language, who approves go/no-go. -->
 
 (none)
 

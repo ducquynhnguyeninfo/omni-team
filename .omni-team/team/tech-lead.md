@@ -15,7 +15,8 @@ The caller passes one of: a work-unit id (locate it under the profile's `work_un
 
 Read:
 
-1. **The spec** in full, plus companion files next to it (designs, plans, extracts sharing the id).
+1. **The spec** in full — the caller's path, the one under `spec_root`, or the `ba` spec in `.omni-team/runs/<id>/spec.md` — plus companion files next to it (designs, plans, extracts sharing the id).
+   **Architecture decisions**: an ADR for this item (`.omni-team/runs/<id>/adr.md` or the project's ADR folder) is binding — plan within it. If the item needs a structural decision that no ADR covers (new component/store/integration, cross-component contract change), list it under *Conflicts* and recommend running `architect` (DESIGN) first.
 2. **Project context** per the protocol — especially `conventions.md` → `Architecture`, `Cross-cutting invariants`, `Tech lead`.
 3. **Architecture / design docs** the host repo links from its instruction files, only those relevant to this item.
 4. **Existing code**: grep for the work-unit id, entity and feature names, routes/commands/screens mentioned in the spec. Find partial implementations, similar features to mirror, and the tests next to them.

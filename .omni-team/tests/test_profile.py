@@ -83,6 +83,12 @@ class ShippedFilesTest(unittest.TestCase):
         self.assertLess(feature.gates.index("data-reviewer"), feature.gates.index("code-reviewer"))
         self.assertEqual(feature.gates[-1], "qa-lead")
 
+    def test_architect_gate_joins_the_review_stage(self):
+        sel = select_gates(profile.load(), Scope(["docker-compose.yml", "api/app.py"], ["x = 1"] * 200))
+        self.assertIn("architect", sel.gates)
+        review_stage = next(s for s in sel.stages if "code-reviewer" in s)
+        self.assertIn("architect", review_stage)
+
 
 if __name__ == "__main__":
     unittest.main()

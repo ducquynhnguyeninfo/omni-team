@@ -83,7 +83,8 @@ Free-form Markdown with **fixed section headings** — each role reads `All role
 | Section | Read by |
 |---|---|
 | `All roles` | everyone |
-| `Architecture`, `Cross-cutting invariants` | everyone, especially `tech-lead`, `code-reviewer`, `qa-lead` |
+| `Requirements` | `ba` (spec template, story/AC style, personas, spec language) |
+| `Architecture`, `Cross-cutting invariants` | everyone, especially `architect` (incl. ADR folder), `tech-lead`, `code-reviewer`, `qa-lead` |
 | `Tech lead` | `tech-lead` |
 | `Code review` | `code-reviewer` |
 | `Testing` | `test-engineer` |
@@ -93,6 +94,7 @@ Free-form Markdown with **fixed section headings** — each role reads `All role
 | `Acceptance` | `qa-lead` |
 | `Smoke testing` | `smoke-tester` |
 | `Project management` | `pm` |
+| `Release` | `release-manager` |
 | `Glossary` | everyone |
 
 Writing tips:

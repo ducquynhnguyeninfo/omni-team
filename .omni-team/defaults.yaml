@@ -85,6 +85,14 @@ signals:
                  "child_process", "os.system", "runtime.exec", "pickle.load", "yaml.load(",
                  "deserializ", "raw sql", "$queryraw", "from_sql", "row level security"]
 
+  architecture_change:
+    - paths: ["**/docker-compose*", "**/compose.y*ml", "**/Dockerfile*", "**/*.tf", "**/k8s/**",
+              "**/helm/**", "**/kustomization.y*ml", "**/serverless.y*ml", "**/Procfile",
+              ".github/workflows/**", ".gitlab-ci.yml", "**/Jenkinsfile",
+              "**/*.proto", "**/*.graphql", "**/openapi*.y*ml", "**/openapi*.json",
+              "**/asyncapi*.y*ml", "**/adr/**", "**/decisions/**"]
+    - files_min: 25            # wide, cross-cutting changes
+
   dependency_change:
     paths: ["**/package.json", "**/package-lock.json", "**/pnpm-lock.yaml", "**/yarn.lock",
             "**/bun.lockb", "**/requirements*.txt", "**/pyproject.toml", "**/poetry.lock",
@@ -115,10 +123,11 @@ signals:
 # -----------------------------------------------------------------------------
 routing:
   stages:
-    - [tech-lead, pm]
-    - [data-reviewer, code-reviewer, test-engineer, security-engineer, perf-engineer]
+    - [ba, tech-lead, pm]
+    - [architect, data-reviewer, code-reviewer, test-engineer, security-engineer, perf-engineer]
     - [qa-lead]
     - [smoke-tester]
+    - [release-manager]
 
   base:
     - name: docs-only
@@ -154,6 +163,12 @@ routing:
     - name: dependency-change
       when: { signals: [dependency_change] }
       agents_add: [security-engineer]
+    - name: architecture-change
+      when: { signals: [architecture_change] }
+      agents_add: [architect]
+    - name: very-large-change
+      when: { loc_min: 1500 }
+      agents_add: [architect]
     - name: ui-change
       when: { signals: [ui_change], loc_min: 40 }
       agents_add: [smoke-tester]

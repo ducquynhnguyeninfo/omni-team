@@ -57,3 +57,13 @@ Migrating a v1 manifest: move stack facts (paths, commands, URLs) into `componen
 | checks were an instruction to the implementer | **Gate 0**: `orchestrator.py checks` / `run` execute `checks` (or component `lint`/`typecheck`/`test`) and stop with exit 7 when red |
 | a passed gate stayed passed until `--fresh` | approvals store the working-tree snapshot; the delta since approval is routed and re-opens the gate when it selects it |
 | `_state.json` gates without `approved_tree` | treated as "approval snapshot unknown" → re-opened once on the next run |
+
+## Compatibility notes (v2.1 → v2.2)
+
+| Change | Impact |
+|---|---|
+| New roles `ba` (Define), `architect` (Design + review gate), `release-manager` (Release) and skills `/ba`, `/architect`, `/release` | re-run `install.py`; nothing to migrate |
+| New signal `architecture_change`; add rules `architecture-change`, `very-large-change` → `architect` | infra/CI/contract/ADR changes, ≥ 25 files or ≥ 1500 added lines now get an architecture review |
+| Default `routing.stages` now `[ba, tech-lead, pm] → [architect, data, code, test, security, perf] → [qa-lead] → [smoke-tester] → [release-manager]` | projects that override `stages` should add `architect` to their review stage |
+| `conventions.md` gains `Requirements` and `Release` sections | add them to existing project files (empty is fine) |
+| `qa-lead` acceptance source order: spec → `runs/<id>/spec.md` (ba) → `tech-lead.md` → request | — |

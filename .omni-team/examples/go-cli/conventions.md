@@ -4,6 +4,10 @@
 
 - There are no specs; the acceptance source is the GitHub issue text the implementer passes, or `tech-lead.md`.
 
+## Requirements
+
+- Work starts from a GitHub issue; for new commands/flags the issue must contain example invocations and expected output — that is the spec.
+
 ## Architecture
 
 - `cmd/logpipe/` — cobra wiring only: flags, argument parsing, calling `internal/app`. **MUST NOT** contain business logic.
@@ -62,6 +66,11 @@
 
 - Single maintainer plus occasional contributors; no sprints — milestones are tagged releases (`vX.Y.0` roughly monthly).
 - Backlog = GitHub issues labelled `planned`; prioritise with value-vs-effort. Status reports go in the release-tracking issue, in English.
+
+## Release
+
+- Semver tags `vX.Y.Z`; goreleaser builds binaries and Homebrew formula from the tag in CI (`.goreleaser.yaml`). `CHANGELOG.md`, Keep a Changelog.
+- Removing a flag or changing output format = major bump. Release notes in English for users.
 
 ## Glossary
 

@@ -43,17 +43,18 @@ signals:
     - keywords: ["password", "api_key"]
 ```
 
-Default signals: `docs_only`, `ui_change`, `schema_change`, `api_surface_change`, `security_sensitive`, `dependency_change`, `perf_sensitive`. Their patterns cover common layouts and route/command declarations across Python, JS/TS, JVM, .NET, Go, Rust, Ruby, PHP, Elixir, gRPC and GraphQL. Override a signal in your profile when your layout differs — signals are merged by name.
+Default signals: `docs_only`, `ui_change`, `schema_change`, `api_surface_change`, `security_sensitive`, `architecture_change`, `dependency_change`, `perf_sensitive`. Their patterns cover common layouts and route/command declarations across Python, JS/TS, JVM, .NET, Go, Rust, Ruby, PHP, Elixir, gRPC and GraphQL. Override a signal in your profile when your layout differs — signals are merged by name.
 
 ## Rules
 
 ```yaml
 routing:
   stages:                        # stages run in order; gates inside one stage run concurrently
-    - [tech-lead, pm]
-    - [data-reviewer, code-reviewer, test-engineer, security-engineer, perf-engineer]
+    - [ba, tech-lead, pm]
+    - [architect, data-reviewer, code-reviewer, test-engineer, security-engineer, perf-engineer]
     - [qa-lead]
     - [smoke-tester]
+    - [release-manager]
   base:                          # FIRST match sets the initial gate list
     - name: docs-only
       when: { signals: [docs_only] }
@@ -89,6 +90,7 @@ Default behaviour in words:
 | + data-access/jobs paths (≥ 40 lines) | + `perf-engineer` |
 | + auth, secrets, input handling, infra/CI | + `security-engineer` |
 | + dependency manifests | + `security-engineer` |
+| + infra/CI/containers, API/event contracts, ADRs, ≥ 25 files, or ≥ 1500 added lines | + `architect` |
 | + UI files (≥ 40 lines) | + `smoke-tester` |
 
 ## Recipes

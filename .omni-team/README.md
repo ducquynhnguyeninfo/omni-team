@@ -1,10 +1,10 @@
 # omni-team
 
-A **stack-agnostic team of AI sub-agents** for software projects: a project manager, a technical planner and seven reviewers that gate every non-trivial change before a human ships it. Works with any language or framework, and with Claude Code, Codex, and any agent that reads `AGENTS.md`.
+A **stack-agnostic team of AI sub-agents** for software projects: an analyst, an architect, a project manager, a technical planner, seven reviewers and a release manager that gate every non-trivial change before a human ships it. Works with any language or framework, and with Claude Code, Codex, and any agent that reads `AGENTS.md`.
 
 ```
-request ─► tech-lead ─► implement ─► data · code · test · security · perf ─► qa-lead · smoke ─► HUMAN
-           (plan)       (main agent)     (Gate 0 checks, then routed gates)   (accept)    (commit)
+request ─► ba · architect ─► tech-lead ─► implement ─► data · code · test · security · perf ─► qa-lead · smoke ─► HUMAN
+           (define/design)  (plan)       (main agent)     (Gate 0 checks, then routed gates)   (accept)    (commit)
 ```
 
 ## Install — copy one folder
@@ -37,7 +37,10 @@ python3 .omni-team/install.py --tools all    # + GEMINI.md and generic AGENTS.md
 | `omni-review` | Review the current working tree with the gates the diff calls for |
 | `omni-ship <task-id>` | Acceptance walkthrough + smoke test + hand-off summary |
 | `omni-setup` | Draft `project/profile.yaml` and `project/conventions.md` from the repo |
+| `/ba <request>` | Business Analyst: testable spec (stories, rules, Given/When/Then AC), refine a spec, fill tickets |
+| `/architect <question>` | Architect: ADR with options and trade-offs, or an architecture review of the current change |
 | `/pm <request>` | Project Manager: charter, roadmap, status/weekly report, RAID, prioritise, tasking, retro |
+| `/release` | Release Manager: version bump, changelog, release notes, deploy/rollback plan, go/no-go |
 
 Reports land in `.omni-team/runs/<task-id>/` — one file per role, plus `_summary.md`. Commit them as an audit trail or git-ignore them; your choice.
 
@@ -56,6 +59,8 @@ The orchestrator never commits. Non-zero exit = paused or needs a human — a na
 
 | Role | Checks | Tier |
 |---|---|---|
+| `ba` | Requirements: stories, use cases, business rules, testable acceptance criteria | deep |
+| `architect` | ADRs for structural changes; architecture-drift review gate | deep |
 | `pm` | Scope, schedule, RAID, prioritisation, tickets, status/weekly reports (on demand) | deep |
 | `tech-lead` | Phased plan, acceptance criteria, existing partial work, edge cases | deep |
 | `code-reviewer` | Correctness, error handling, boundaries, conventions, idioms, UI quality | standard |
@@ -65,6 +70,7 @@ The orchestrator never commits. Non-zero exit = paused or needs a human — a na
 | `perf-engineer` | Tiers/budgets, N+1, unbounded work, blocking I/O, timeouts | standard |
 | `qa-lead` | Every acceptance criterion vs code and tests | deep |
 | `smoke-tester` | Runs the feature for real (browser, API, CLI, script) | standard |
+| `release-manager` | Version, changelog, release notes, deploy/rollback plan, go/no-go | standard |
 
 Roles carry no stack knowledge of their own beyond general engineering expertise: they read **your** rules from `project/` and apply the idioms of whatever stack they find.
 
@@ -88,7 +94,7 @@ Replace everything in `.omni-team/` **except** `project/` and `runs/`, then re-r
 ├── AGENTS.md  CLAUDE.md  GEMINI.md   entry points for agents (CLAUDE/GEMINI import AGENTS.md)
 ├── README.md                          this file
 ├── team/                              canonical role definitions + shared _protocol.md
-├── skills/                            omni-setup · omni-task · omni-plan · omni-review · omni-ship · pm
+├── skills/                            omni-setup · omni-task · omni-plan · omni-review · omni-ship · ba · architect · pm · release
 ├── project/                           YOUR profile.yaml + conventions.md
 ├── defaults.yaml                      default signals, routing, engines (data, not code)
 ├── examples/                          sample project/ folders for different stacks

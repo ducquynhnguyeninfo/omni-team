@@ -6,7 +6,7 @@ You are working in a repository that vendors **omni-team**: a stack-agnostic tea
 
 ## The model in one paragraph
 
-You — the main agent — are the **implementer**. The team members are **reviewers, a technical planner and a project manager**; they never write code. For any non-trivial change you plan with `tech-lead`, implement, run the project's checks, then pass the change through review **gates** one at a time. Each gate returns a machine-readable verdict. You fix what they find and re-run that gate. When every routed gate passes, you hand off to the **human gate**. Nobody on the team — including you — commits, pushes or merges.
+You — the main agent — are the **implementer**. The team members are **an analyst, an architect, a technical planner, a project manager, reviewers and a release manager**; they never write code. For any non-trivial change you make sure the requirements are clear (`ba`), the structure is decided (`architect`, when it changes), plan with `tech-lead`, implement, pass Gate 0 (the project's own checks), then pass the change through review **gates** stage by stage. Each gate returns a machine-readable verdict. You fix what they find and re-run that gate. When every routed gate passes, you hand off to the **human gate**. Nobody on the team — including you — commits, pushes or merges.
 
 ## Files you need
 
@@ -17,13 +17,15 @@ You — the main agent — are the **implementer**. The team members are **revie
 | `project/profile.yaml` | Structured project facts — components, stacks, commands, URLs. `auto` = infer | **project** |
 | `project/conventions.md` | Project rulebook, one section per role | **project** |
 | `defaults.yaml` | Default signals, routing rules, engines | framework (override in profile) |
-| `skills/<name>/SKILL.md` | Entry-point workflows: `omni-setup`, `omni-task`, `omni-plan`, `omni-review`, `omni-ship`, `pm` | framework |
+| `skills/<name>/SKILL.md` | Entry-point workflows: `omni-setup`, `omni-task`, `omni-plan`, `omni-review`, `omni-ship`, and per-role `ba`, `architect`, `pm`, `release` | framework |
 | `runs/<task-id>/` | Artifacts: one report file per role, `_state.json`, `_summary.md` | generated |
 
 ## The roster
 
 | Role | Phase | Fires when | Verdicts |
 |---|---|---|---|
+| `ba` | Define | no usable spec, vague request, or pm tickets to fill (`/ba`) | `PLAN_READY`, `NEEDS_CLARIFICATION` |
+| `architect` | Design + Review | DESIGN (`/architect`): ADR before a structural change · REVIEW gate: infra, contracts, very wide or large diffs | DESIGN `PLAN_READY`; REVIEW gate |
 | `pm` | Coordinate | on demand (`/pm`): charter, plan/roadmap, status & weekly report, RAID, prioritisation, TASKING, retro | `PLAN_READY`, `NEEDS_CLARIFICATION` |
 | `tech-lead` | Plan | any non-trivial task, before code | `PLAN_READY`, `NEEDS_CLARIFICATION` |
 | `data-reviewer` | Review | migrations, data models, wire/persisted formats changed | gate |
@@ -33,6 +35,7 @@ You — the main agent — are the **implementer**. The team members are **revie
 | `perf-engineer` | Review | new/changed entry points or data paths | gate |
 | `qa-lead` | Accept | features and large changes — acceptance criteria walkthrough | gate |
 | `smoke-tester` | Accept | runnable user-facing behaviour (UI, API, CLI) | gate; may return `BLOCKED` if the app is not running |
+| `release-manager` | Release | cutting a release / before a deploy (`/release`): PREPARE package · READINESS go/no-go | PREPARE `PLAN_READY`; READINESS gate |
 
 Gate verdicts: `APPROVE` · `REQUEST_CHANGES` · `BLOCK` · `NOT_APPLICABLE` · `NEEDS_CLARIFICATION` · `BLOCKED`. The verdict is the **last line** of the report: `VERDICT: <TOKEN> — <summary>`.
 
@@ -48,17 +51,25 @@ Copying `.omni-team/` into the repo is enough to start: every `auto` value is in
 - **Trivial** — ≲15 changed lines, docs-only, or a rename with no behaviour change, and no security/data area touched: implement, run checks, report. No gates.
 - Otherwise continue.
 
-### 2. Plan
+### 2. Define — requirements (`ba`)
+
+If there is no spec with testable acceptance criteria — a one-line request, chat notes, a vague ticket — invoke `ba` (SPEC mode) first; for an existing but shaky spec use REFINE. Save the result to `<spec_root>/<task-id>.md` when the project keeps specs there, else `runs/<task-id>/spec.md`. Put its open questions to the user; proceed on the proposed defaults only if the user accepts them. Skip for small fixes with an obvious expected behaviour.
+
+### 3. Design — architecture (`architect`, only when the structure changes)
+
+Invoke `architect` in DESIGN mode **before planning** when the work adds or removes a component, data store, queue or external integration, adopts a major dependency or platform, changes a cross-component contract or data ownership, or alters deployment topology. It returns an ADR (options, trade-offs, decision, consequences). Save it to the project's ADR folder (ask before creating files outside `.omni-team/`) or `runs/<task-id>/adr.md`; a human accepts it. `tech-lead` then plans within it. The REVIEW mode runs later as a routed gate.
+
+### 4. Plan
 
 Invoke `tech-lead` with the request or spec. Append its report verbatim to `runs/<task-id>/tech-lead.md`. If it ends `NEEDS_CLARIFICATION`, ask the user its open questions before writing code. Skip planning only for small, well-understood fixes.
 
 When several people (or a BA/PO) deliver the work, follow with `pm` in **TASKING** mode: it turns the tech-lead plan into MECE, capacity-allocated tickets under `runs/<task-id>/tasks/`. `pm` is never a review gate; it is also invoked on demand (`/pm` skill) for charters, roadmaps, status/weekly reports, RAID, prioritisation and retros — see `skills/pm/SKILL.md`.
 
-### 3. Implement
+### 5. Implement
 
 Follow the plan phase by phase, mirroring the reference pattern it names. Respect `project/conventions.md`. Run the project's checks — **Gate 0** — until they pass: `python3 .omni-team/orchestrator.py checks --task <id>` runs the profile's `checks` (or the touched components' `lint` / `typecheck` / `test` commands) and logs to `runs/<id>/_checks.md`. Without Python, run those commands yourself (or what the repo's README/CI uses). Never request review on red checks — the headless `run` refuses to (exit 7).
 
-### 4. Review (stages run in order; gates inside a stage are independent)
+### 6. Review (stages run in order; gates inside a stage are independent)
 
 1. **Route.** Preferred: `python3 .omni-team/orchestrator.py classify --task <id>` prints the gate list (needs Python 3.8+ and PyYAML). Without it, apply the rules yourself: evaluate each signal in `defaults.yaml` (merged with overrides in `project/profile.yaml`) against the diff, take the **first** matching `routing.base` rule, append every matching `routing.add_if` rule, group by `routing.stages`. Say which rules matched.
 2. **Invoke** each gate as a **fresh** sub-agent (see "Invoking a role"), **stage by stage**. Gates in the same stage do not read each other's reports, so launch them together (in parallel when your tool allows). A stage starts only after every gate of the previous stage has passed — later stages read earlier reports (e.g. `qa-lead` checks earlier findings were fixed).
@@ -77,13 +88,17 @@ Follow the plan phase by phase, mirroring the reference pattern it names. Respec
 
 If you disagree with a finding, do not silently skip it: record the rationale in the artifact under "Actions taken by implementer" and let the human decide.
 
-### 5. Accept
+### 7. Accept
 
-`qa-lead` (acceptance criteria from the spec, else from `tech-lead.md`, else from the request) and `smoke-tester` (if routed) run last with the same loop.
+`qa-lead` (acceptance criteria from the spec, else `runs/<id>/spec.md` from `ba`, else `tech-lead.md`, else the request) and `smoke-tester` (if routed) run last with the same loop.
 
-### 6. Hand off — the human gate
+### 8. Hand off — the human gate
 
 Write `runs/<task-id>/_summary.md`: gates → verdicts, fixes made, deferred items, open questions. Tell the user the change is ready for **their** review (the profile's `human_gate`). Never commit, push, merge, tag or release on the team's behalf.
+
+### 9. Release (when the humans cut a release)
+
+Invoke `release-manager` (`/release`): **PREPARE** proposes the version bump, changelog entry, release notes, upgrade notes, deploy and rollback plan and post-deploy checks from everything merged since the last tag; **READINESS** is the go/no-go gate over the gate reports, checks, migrations, versions and docs. Apply version/changelog edits only with the user's consent; tagging, publishing and deploying stay human.
 
 ## Invoking a role
 

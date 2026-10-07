@@ -67,7 +67,7 @@ VERDICT: <TOKEN> — <one-line summary>
 | `NOT_APPLICABLE` | Nothing in scope for your role — say why in one line |
 | `NEEDS_CLARIFICATION` | A human decision or missing spec is required before you can judge |
 | `BLOCKED` | The environment prevented the review (tool missing, server down, no access) — not a verdict on the code |
-| `PLAN_READY` | Planning roles only (`tech-lead`, `pm`): the plan / artifact is delivered |
+| `PLAN_READY` | Planning modes only (`ba`, `architect` DESIGN, `tech-lead`, `pm`, `release-manager` PREPARE): the document is delivered |
 
 Do not print any other line starting with `VERDICT:` — the orchestrator reads the last one.
 
@@ -84,7 +84,9 @@ Do not print any other line starting with `VERDICT:` — the orchestrator reads 
 
 | Concern | Owner |
 |---|---|
+| Requirements: goals, stories, business rules, acceptance criteria (the WHAT and WHY) | `ba` |
 | Scope, schedule, risk/RAID, prioritisation, ticket decomposition, status reporting | `pm` |
+| System structure: components, cross-component contracts, technology choices, ADRs | `architect` |
 | Implementation plan, acceptance-criteria extraction, technical sequencing | `tech-lead` |
 | Correctness, design, module boundaries, project conventions, language/framework idioms, maintainability, UI code quality | `code-reviewer` |
 | Missing or weak tests for the changed behaviour | `test-engineer` |
@@ -93,4 +95,5 @@ Do not print any other line starting with `VERDICT:` — the orchestrator reads 
 | Latency, throughput, query patterns, resource usage | `perf-engineer` |
 | Does the change satisfy the spec / acceptance criteria? | `qa-lead` |
 | Does the built thing actually run and behave? | `smoke-tester` |
+| Release package (version, changelog, notes, deploy/rollback plan) and go/no-go | `release-manager` |
 | Shipping (commit, push, merge, release) | **the human — never a role** |

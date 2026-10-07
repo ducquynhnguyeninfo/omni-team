@@ -6,6 +6,8 @@ Each role is one Markdown file in [`../team/`](../team/) plus the shared [`../te
 
 | Role | Phase | Owns | Tier | Access |
 |---|---|---|---|---|
+| [`ba`](../team/ba.md) | Define | goals, stories, use cases, business rules, testable AC; spec refinement; ticket business content | deep | read-only |
+| [`architect`](../team/architect.md) | Design + Review gate | ADRs (options, trade-offs, decision); architecture-drift review of diffs | deep | read-only |
 | [`pm`](../team/pm.md) | Coordinate (on demand) | scope, schedule, RAID, prioritisation, ticket decomposition (TASKING), status/weekly reports | deep | read-only |
 | [`tech-lead`](../team/tech-lead.md) | Plan | phased plan, acceptance criteria, sequencing, open questions | deep | read-only |
 | [`data-reviewer`](../team/data-reviewer.md) | Review | migrations, data models, persisted/wire formats | standard | read-only |
@@ -15,6 +17,7 @@ Each role is one Markdown file in [`../team/`](../team/) plus the shared [`../te
 | [`perf-engineer`](../team/perf-engineer.md) | Review | tiers/budgets, query and I/O patterns, resource use | standard | read-only |
 | [`qa-lead`](../team/qa-lead.md) | Accept | acceptance criteria vs implementation and tests | deep | read-only |
 | [`smoke-tester`](../team/smoke-tester.md) | Accept | running the change for real, evidence | standard | run |
+| [`release-manager`](../team/release-manager.md) | Release | version bump, changelog, release notes, deploy/rollback plan; go/no-go | standard | read-only |
 
 `tier` maps to a model per tool (Claude: opus/sonnet/haiku; Codex: reasoning effort high/medium/low) — see [adapters.md](adapters.md). `access: run` lets the role execute the app and write evidence under the artifacts folder; every other role is read-only.
 

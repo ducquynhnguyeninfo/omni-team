@@ -1,6 +1,6 @@
 # omni-team
 
-A **stack-agnostic team of AI sub-agents** — a project manager, a technical planner and seven reviewers — that gate every non-trivial change before a human ships it. Works with any language or framework and with Claude Code, Codex, Gemini CLI and any agent that reads `AGENTS.md`.
+A **stack-agnostic team of AI sub-agents** — an analyst, an architect, a project manager, a technical planner, seven reviewers and a release manager — that gate every non-trivial change before a human ships it. Works with any language or framework and with Claude Code, Codex, Gemini CLI and any agent that reads `AGENTS.md`.
 
 This repository is the development home. **The product is the [`.omni-team/`](.omni-team/) folder** — copy it into a project and it works:
 
@@ -17,12 +17,14 @@ Full guide: **[.omni-team/README.md](.omni-team/README.md)** · Agent manual: [.
 ## The team
 
 ```
-request ─► tech-lead ─► implement ─► data · code · test · security · perf ─► qa-lead · smoke ─► HUMAN
-           (plan)       (main agent)     (Gate 0 checks, then routed gates)   (accept)    (commit)
+request ─► ba · architect ─► tech-lead ─► implement ─► data · code · test · security · perf ─► qa-lead · smoke ─► HUMAN
+           (define/design)  (plan)       (main agent)     (Gate 0 checks, then routed gates)   (accept)    (commit)
 ```
 
 | Role | Owns |
 |---|---|
+| `ba` | requirements: stories, business rules, testable acceptance criteria — `/ba` |
+| `architect` | ADRs for structural changes; architecture-drift review gate — `/architect` |
 | `pm` | scope, schedule, RAID, prioritisation, tickets, status/weekly reports — on demand via `/pm` |
 | `tech-lead` | phased plan, acceptance criteria, edge cases |
 | `code-reviewer` | correctness, boundaries, conventions, idioms, UI code quality |
@@ -32,6 +34,7 @@ request ─► tech-lead ─► implement ─► data · code · test · securit
 | `perf-engineer` | budgets, query/I-O patterns, blocking calls |
 | `qa-lead` | every acceptance criterion vs code and tests |
 | `smoke-tester` | running the change for real |
+| `release-manager` | version, changelog, release notes, deploy/rollback plan, go/no-go — `/release` |
 
 ## How it stays generic
 
