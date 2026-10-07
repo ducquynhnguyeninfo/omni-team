@@ -60,4 +60,4 @@ Generated in the **host project root** by `install.py` (build output — edit th
 
 ## Upgrading a vendored copy
 
-Replace everything except `project/` and `runs/`; re-run `install.py`. Because defaults live in `defaults.yaml` and projects only override, upgrades never require merging your profile.
+`python3 <omni-team checkout>/.omni-team/install.py upgrade --dir <project>` replaces every framework file, removes stale ones, keeps `project/` and `runs/`, and regenerates the adapters. Because defaults live in `defaults.yaml` and projects only override, upgrades never require merging your profile.

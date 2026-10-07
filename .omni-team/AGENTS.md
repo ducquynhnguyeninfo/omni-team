@@ -43,7 +43,7 @@ Gate verdicts: `APPROVE` · `REQUEST_CHANGES` · `BLOCK` · `NOT_APPLICABLE` · 
 
 ### 0. Setup (once per project, optional)
 
-Copying `.omni-team/` into the repo is enough to start: every `auto` value is inferred at run time. For sharper reviews run the **`omni-setup`** skill (or follow `skills/omni-setup/SKILL.md`) to draft `project/profile.yaml` and `project/conventions.md`, and `python3 .omni-team/install.py` to register native sub-agents. Neither is required.
+Copying `.omni-team/` into the repo is enough to start: every `auto` value is inferred at run time. For sharper reviews run the **`omni-setup`** skill (or follow `skills/omni-setup/SKILL.md`) to draft `project/profile.yaml` and `project/conventions.md`, and `python3 .omni-team/install.py` to register native sub-agents (from an omni-team checkout, `install.py --dir <project>` copies and registers in one step; `upgrade --dir <project>` updates later). Neither is required.
 
 ### 1. Classify
 

@@ -67,3 +67,10 @@ Migrating a v1 manifest: move stack facts (paths, commands, URLs) into `componen
 | Default `routing.stages` now `[ba, tech-lead, pm] → [architect, data, code, test, security, perf] → [qa-lead] → [smoke-tester] → [release-manager]` | projects that override `stages` should add `architect` to their review stage |
 | `conventions.md` gains `Requirements` and `Release` sections | add them to existing project files (empty is fine) |
 | `qa-lead` acceptance source order: spec → `runs/<id>/spec.md` (ba) → `tech-lead.md` → request | — |
+
+## Compatibility notes (v2.2 → v2.3)
+
+| Change | Impact |
+|---|---|
+| `install.py --dir <project>` vendors the framework (fresh or upgrade) and installs in one step; commands `install`/`init`/`upgrade`/`uninstall` | manual `cp -R` no longer needed; `--project-root` keeps its old meaning (adapters only) |
+| `upgrade` preserves `project/` and `runs/`, removes stale framework files, refuses downgrades without `--force` | local edits to framework files (e.g. `defaults.yaml`) are overwritten — put overrides in `project/profile.yaml` |

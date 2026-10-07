@@ -5,9 +5,8 @@ A **stack-agnostic team of AI sub-agents** — an analyst, an architect, a proje
 This repository is the development home. **The product is the [`.omni-team/`](.omni-team/) folder** — copy it into a project and it works:
 
 ```bash
-cp -R .omni-team /path/to/your-project/
-cd /path/to/your-project
-python3 .omni-team/install.py          # optional: native sub-agents + skills for Claude Code and Codex
+python3 .omni-team/install.py --dir /path/to/your-project            # copy + register (Claude Code, Codex)
+python3 .omni-team/install.py upgrade --dir /path/to/your-project    # later: upgrade, keeps project/ and runs/
 ```
 
 Then ask your agent: *"omni-task: add CSV export to the reports page"* (or *"follow .omni-team/AGENTS.md for this task"*).

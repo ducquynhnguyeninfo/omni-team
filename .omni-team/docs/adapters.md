@@ -5,11 +5,23 @@ One canonical source (`team/`, `skills/`), several native formats. [`../install.
 ## install.py
 
 ```bash
-python3 .omni-team/install.py [--tools claude,codex,gemini,agents-md | all]
+python3 .omni-team/install.py [install|init|upgrade|uninstall] [--dir <project>]
+                              [--tools claude,codex,gemini,agents-md | all]
                               [--project-root <dir>] [--claude-models deep=opus,standard=sonnet,fast=haiku]
                               [--codex-effort deep=high,standard=medium,fast=low]
                               [--no-pointer] [--force] [--dry-run] [--uninstall]
 ```
+
+| Option | Effect |
+|---|---|
+| `--dir <project>` | **vendor** the framework into `<project>/.omni-team/` (fresh copy, or upgrade of an existing copy: framework files replaced/removed, `project/` and `runs/` preserved; downgrade needs `--force`), then register the adapters in `<project>/`. Warns when `<project>` is not a git repository root |
+| `--project-root <dir>` | register adapters into `<dir>` without copying anything (the framework is used where it is) |
+| neither | register adapters into the folder that contains this `.omni-team/` |
+| `init` | alias of `install` |
+| `upgrade` | like install, but requires an existing `<project>/.omni-team/` |
+| `uninstall` | remove generated adapters and pointer blocks; a vendored folder is left in place |
+
+All checks (foreign files with the same name, a non-omni-team `.omni-team/` folder, downgrade, missing directory) run before anything is written.
 
 | Tool | Generated (relative to project root) | Notes |
 |---|---|---|
