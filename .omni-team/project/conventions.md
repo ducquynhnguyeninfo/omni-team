@@ -88,6 +88,15 @@ smoke-tester may start services itself. -->
 
 (none)
 
+## Project management
+
+<!-- For the pm role: delivery team (person/role, seniority, skills, capacity
+h/week, focus factor, WIP limit), cadence (sprints, milestones, release dates),
+stakeholders and report audience, report language, estimation unit, where the
+tracker and PM documents live (e.g. docs/pm/), reporting template. -->
+
+(none)
+
 ## Glossary
 
 <!-- Domain terms and abbreviations agents should understand. -->

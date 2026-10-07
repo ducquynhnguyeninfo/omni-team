@@ -58,6 +58,11 @@
 - Build with `go build -o bin/logpipe ./cmd/logpipe`, then run in a temp dir, e.g. `printf '{"lvl":"info"}\n' | ./bin/logpipe filter --level info`.
 - S3 sink: use `--sink file://$TMPDIR/out` instead of real buckets; never touch real AWS accounts.
 
+## Project management
+
+- Single maintainer plus occasional contributors; no sprints — milestones are tagged releases (`vX.Y.0` roughly monthly).
+- Backlog = GitHub issues labelled `planned`; prioritise with value-vs-effort. Status reports go in the release-tracking issue, in English.
+
 ## Glossary
 
 - **Sink** — output adapter. **Source** — input adapter. **Record** — one structured log line.

@@ -30,14 +30,15 @@ BLOCK_END = "<!-- omni-team:end -->"
 POINTER_BODY = """## omni-team — AI review team
 
 This repository vendors **omni-team** in `.omni-team/`: a stack-agnostic team of
-planning and review sub-agents (tech-lead, code-reviewer, test-engineer,
+planning and review sub-agents (pm, tech-lead, code-reviewer, test-engineer,
 data-reviewer, security-engineer, perf-engineer, qa-lead, smoke-tester).
 
 - For any non-trivial change, follow **`.omni-team/AGENTS.md`**: plan → implement →
   serial review gates → acceptance → stop at the human gate.
 - Project facts and rules for the team: `.omni-team/project/profile.yaml` and
   `.omni-team/project/conventions.md`.
-- Entry points: `omni-task` (full flow), `omni-plan`, `omni-review`, `omni-ship`, `omni-setup`.
+- Entry points: `omni-task` (full flow), `omni-plan`, `omni-review`, `omni-ship`, `omni-setup`,
+  `pm` (project manager: status, RAID, roadmap, tasking …).
 - The team never commits, pushes or merges — shipping is a human decision."""
 
 

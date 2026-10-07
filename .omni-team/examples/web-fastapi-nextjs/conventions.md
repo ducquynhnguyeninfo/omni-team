@@ -85,6 +85,22 @@
 - Browser tool: Chrome DevTools MCP. Wireframes: `example-frontend/wireframe-prototype/`.
 - Test accounts: see `document/dev-accounts.md` (local only, not committed secrets).
 
+## Project management
+
+- Delivery team (review roles are gates, never assignees):
+
+  | Person | Role | Fit | Capacity |
+  |---|---|---|---|
+  | BA-1 | Business Analyst | business content of tickets (use cases, rules, AC); writes no code | 30 h/week |
+  | DEV-BE | Mid backend engineer | routine, well-specified backend: repo/service/router, migrations. **Not** FE, not security-critical | 35 h/week |
+  | DEV-FS | Senior full-stack engineer | all FE, cross-layer/architectural work, auth/PII paths, BE overflow | 35 h/week |
+
+  Focus factor 0.65–0.7; WIP limit 2 per person.
+- Cadence: 2-week sprints; specs per MP under `document/sprints/sprint-N/`.
+- Stakeholders: DM, BUL, customer PO. Management reports (status, weekly) in **Vietnamese**, business altitude.
+- PM documents: `document/pm/` (e.g. `document/pm/weekly-2026-W41.md`); TASKING output under the MP's run folder.
+- Estimates in days, O/L/P.
+
 ## Glossary
 
 - **MP** — Mini Package, the unit of work inside a sprint.

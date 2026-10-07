@@ -13,12 +13,21 @@ Classify ─► Plan ─► Implement ─► Review ─► Accept ─► Hand of
 | Phase | Who | Output |
 |---|---|---|
 | Classify | main agent (+ `orchestrator.py classify`) | task id, trivial vs non-trivial, gate list |
-| Plan | `tech-lead` | `runs/<id>/tech-lead.md` — phases, acceptance criteria, open questions |
+| Plan | `tech-lead` (+ `pm` TASKING for team delivery) | `runs/<id>/tech-lead.md` — phases, acceptance criteria, open questions; `runs/<id>/tasks/` — assignable tickets |
 | Implement | main agent or human | code + green project checks |
 | Review | routed gates, serially | `runs/<id>/<role>.md` per gate |
 | Accept | `qa-lead`, then `smoke-tester` | acceptance table, smoke evidence |
 | Hand off | main agent | `runs/<id>/_summary.md`, message to the human |
 | Ship | **human only** | commit, push, merge |
+
+## Project management (`pm`)
+
+`pm` sits beside the pipeline, not in it: it is never routed as a gate. Use it
+
+- after `tech-lead`, in **TASKING** mode, when the work is delivered by several people — it produces `runs/<id>/tasks/_board.md` (allocation, MECE traceability, critical path) and one file per ticket;
+- on demand via the `pm` skill (`/pm` in Claude Code) for a charter, roadmap, status or weekly report, RAID review, backlog prioritisation or retrospective. Project-level artifacts go where `conventions.md` → *Project management* says, else `runs/pm/`.
+
+Its status reports read gate verdicts in `runs/` as evidence, so the review pipeline doubles as the project's progress signal.
 
 ## Choosing a task id
 

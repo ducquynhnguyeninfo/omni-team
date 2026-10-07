@@ -1,6 +1,6 @@
 # omni-team
 
-A **stack-agnostic team of AI sub-agents** — one planner and seven reviewers — that gate every non-trivial change before a human ships it. Works with any language or framework and with Claude Code, Codex, Gemini CLI and any agent that reads `AGENTS.md`.
+A **stack-agnostic team of AI sub-agents** — a project manager, a technical planner and seven reviewers — that gate every non-trivial change before a human ships it. Works with any language or framework and with Claude Code, Codex, Gemini CLI and any agent that reads `AGENTS.md`.
 
 This repository is the development home. **The product is the [`.omni-team/`](.omni-team/) folder** — copy it into a project and it works:
 
@@ -23,6 +23,7 @@ request ─► tech-lead ─► implement ─► data · code · test · securit
 
 | Role | Owns |
 |---|---|
+| `pm` | scope, schedule, RAID, prioritisation, tickets, status/weekly reports — on demand via `/pm` |
 | `tech-lead` | phased plan, acceptance criteria, edge cases |
 | `code-reviewer` | correctness, boundaries, conventions, idioms, UI code quality |
 | `test-engineer` | missing tests (P0/P1/P2) |

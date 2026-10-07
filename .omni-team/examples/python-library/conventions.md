@@ -52,6 +52,11 @@
 
 - Build the wheel (`hatch build`), install it into a fresh temp venv with each extra (`[pandas]`, `[polars]`), and run the docstring example of the new API in a throwaway script.
 
+## Project management
+
+- Two core maintainers (review capacity ~5 h/week each); roadmap in `docs/roadmap.md`, one minor release per quarter.
+- Prioritise with RICE; deprecations must be scheduled one minor release ahead. Reports in English, audience = contributors.
+
 ## Glossary
 
 - **Engine** — the dataframe backend (pandas or polars). **Normaliser** — a pure function column → column.

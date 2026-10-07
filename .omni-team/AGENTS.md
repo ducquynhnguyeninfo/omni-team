@@ -6,7 +6,7 @@ You are working in a repository that vendors **omni-team**: a stack-agnostic tea
 
 ## The model in one paragraph
 
-You — the main agent — are the **implementer**. The team members are **reviewers and a planner**; they never write code. For any non-trivial change you plan with `tech-lead`, implement, run the project's checks, then pass the change through review **gates** one at a time. Each gate returns a machine-readable verdict. You fix what they find and re-run that gate. When every routed gate passes, you hand off to the **human gate**. Nobody on the team — including you — commits, pushes or merges.
+You — the main agent — are the **implementer**. The team members are **reviewers, a technical planner and a project manager**; they never write code. For any non-trivial change you plan with `tech-lead`, implement, run the project's checks, then pass the change through review **gates** one at a time. Each gate returns a machine-readable verdict. You fix what they find and re-run that gate. When every routed gate passes, you hand off to the **human gate**. Nobody on the team — including you — commits, pushes or merges.
 
 ## Files you need
 
@@ -17,13 +17,14 @@ You — the main agent — are the **implementer**. The team members are **revie
 | `project/profile.yaml` | Structured project facts — components, stacks, commands, URLs. `auto` = infer | **project** |
 | `project/conventions.md` | Project rulebook, one section per role | **project** |
 | `defaults.yaml` | Default signals, routing rules, engines | framework (override in profile) |
-| `skills/<name>/SKILL.md` | Entry-point workflows: `omni-setup`, `omni-task`, `omni-plan`, `omni-review`, `omni-ship` | framework |
+| `skills/<name>/SKILL.md` | Entry-point workflows: `omni-setup`, `omni-task`, `omni-plan`, `omni-review`, `omni-ship`, `pm` | framework |
 | `runs/<task-id>/` | Artifacts: one report file per role, `_state.json`, `_summary.md` | generated |
 
 ## The roster
 
 | Role | Phase | Fires when | Verdicts |
 |---|---|---|---|
+| `pm` | Coordinate | on demand (`/pm`): charter, plan/roadmap, status & weekly report, RAID, prioritisation, TASKING, retro | `PLAN_READY`, `NEEDS_CLARIFICATION` |
 | `tech-lead` | Plan | any non-trivial task, before code | `PLAN_READY`, `NEEDS_CLARIFICATION` |
 | `data-reviewer` | Review | migrations, data models, wire/persisted formats changed | gate |
 | `code-reviewer` | Review | any non-trivial code change | gate |
@@ -50,6 +51,8 @@ Copying `.omni-team/` into the repo is enough to start: every `auto` value is in
 ### 2. Plan
 
 Invoke `tech-lead` with the request or spec. Append its report verbatim to `runs/<task-id>/tech-lead.md`. If it ends `NEEDS_CLARIFICATION`, ask the user its open questions before writing code. Skip planning only for small, well-understood fixes.
+
+When several people (or a BA/PO) deliver the work, follow with `pm` in **TASKING** mode: it turns the tech-lead plan into MECE, capacity-allocated tickets under `runs/<task-id>/tasks/`. `pm` is never a review gate; it is also invoked on demand (`/pm` skill) for charters, roadmaps, status/weekly reports, RAID, prioritisation and retros — see `skills/pm/SKILL.md`.
 
 ### 3. Implement
 

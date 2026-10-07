@@ -92,6 +92,7 @@ Free-form Markdown with **fixed section headings** — each role reads `All role
 | `Performance` | `perf-engineer` |
 | `Acceptance` | `qa-lead` |
 | `Smoke testing` | `smoke-tester` |
+| `Project management` | `pm` |
 | `Glossary` | everyone |
 
 Writing tips:

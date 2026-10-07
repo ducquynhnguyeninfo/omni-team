@@ -6,6 +6,7 @@ Each role is one Markdown file in [`../team/`](../team/) plus the shared [`../te
 
 | Role | Phase | Owns | Tier | Access |
 |---|---|---|---|---|
+| [`pm`](../team/pm.md) | Coordinate (on demand) | scope, schedule, RAID, prioritisation, ticket decomposition (TASKING), status/weekly reports | deep | read-only |
 | [`tech-lead`](../team/tech-lead.md) | Plan | phased plan, acceptance criteria, sequencing, open questions | deep | read-only |
 | [`data-reviewer`](../team/data-reviewer.md) | Review | migrations, data models, persisted/wire formats | standard | read-only |
 | [`code-reviewer`](../team/code-reviewer.md) | Review | correctness, boundaries, conventions, idioms, UI code quality | standard | read-only |

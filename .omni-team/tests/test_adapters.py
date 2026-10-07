@@ -25,11 +25,11 @@ except ImportError:  # pragma: no cover
 class CanonicalSourcesTest(unittest.TestCase):
     def test_roles_and_skills_are_valid(self):
         roles = load_roles()
-        self.assertGreaterEqual(len(roles), 8)
+        self.assertGreaterEqual(len(roles), 9)
         for role in roles:
             self.assertIn("VERDICT:", role.body, f"{role.name} must document its verdict line")
         self.assertEqual({s.name for s in load_skills()},
-                         {"omni-setup", "omni-task", "omni-plan", "omni-review", "omni-ship"})
+                         {"omni-setup", "omni-task", "omni-plan", "omni-review", "omni-ship", "pm"})
 
     def test_frontmatter_errors_are_loud(self):
         with self.assertRaises(RoleError):

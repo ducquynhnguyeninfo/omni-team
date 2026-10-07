@@ -1,6 +1,6 @@
 # omni-team
 
-A **stack-agnostic team of AI sub-agents** for software projects: one planner and seven reviewers that gate every non-trivial change before a human ships it. Works with any language or framework, and with Claude Code, Codex, and any agent that reads `AGENTS.md`.
+A **stack-agnostic team of AI sub-agents** for software projects: a project manager, a technical planner and seven reviewers that gate every non-trivial change before a human ships it. Works with any language or framework, and with Claude Code, Codex, and any agent that reads `AGENTS.md`.
 
 ```
 request ─► tech-lead ─► implement ─► data · code · test · security · perf ─► qa-lead · smoke ─► HUMAN
@@ -37,6 +37,7 @@ python3 .omni-team/install.py --tools all    # + GEMINI.md and generic AGENTS.md
 | `omni-review` | Review the current working tree with the gates the diff calls for |
 | `omni-ship <task-id>` | Acceptance walkthrough + smoke test + hand-off summary |
 | `omni-setup` | Draft `project/profile.yaml` and `project/conventions.md` from the repo |
+| `/pm <request>` | Project Manager: charter, roadmap, status/weekly report, RAID, prioritise, tasking, retro |
 
 Reports land in `.omni-team/runs/<task-id>/` — one file per role, plus `_summary.md`. Commit them as an audit trail or git-ignore them; your choice.
 
@@ -55,6 +56,7 @@ The orchestrator never commits. Non-zero exit = paused or needs a human — a na
 
 | Role | Checks | Tier |
 |---|---|---|
+| `pm` | Scope, schedule, RAID, prioritisation, tickets, status/weekly reports (on demand) | deep |
 | `tech-lead` | Phased plan, acceptance criteria, existing partial work, edge cases | deep |
 | `code-reviewer` | Correctness, error handling, boundaries, conventions, idioms, UI quality | standard |
 | `test-engineer` | Missing tests for new behaviour, prioritised P0/P1/P2 | standard |
@@ -71,7 +73,7 @@ Roles carry no stack knowledge of their own beyond general engineering expertise
 | File | Put here |
 |---|---|
 | `project/profile.yaml` | Components (path, kind, stack, commands, URLs), spec location, work-unit name, optional routing/engine overrides |
-| `project/conventions.md` | Architecture, invariants and per-role rules — plain Markdown |
+| `project/conventions.md` | Architecture, invariants and per-role rules (incl. the delivery team for `pm`) — plain Markdown |
 
 Samples: [`examples/`](examples/) (FastAPI + Next.js web app, Go CLI, Python library). Schema: [docs/profile.md](docs/profile.md). Routing: [docs/routing.md](docs/routing.md).
 
@@ -86,7 +88,7 @@ Replace everything in `.omni-team/` **except** `project/` and `runs/`, then re-r
 ├── AGENTS.md  CLAUDE.md  GEMINI.md   entry points for agents (CLAUDE/GEMINI import AGENTS.md)
 ├── README.md                          this file
 ├── team/                              canonical role definitions + shared _protocol.md
-├── skills/                            omni-setup · omni-task · omni-plan · omni-review · omni-ship
+├── skills/                            omni-setup · omni-task · omni-plan · omni-review · omni-ship · pm
 ├── project/                           YOUR profile.yaml + conventions.md
 ├── defaults.yaml                      default signals, routing, engines (data, not code)
 ├── examples/                          sample project/ folders for different stacks

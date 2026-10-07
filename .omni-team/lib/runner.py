@@ -141,7 +141,7 @@ def run_gate(
         output = (
             f"[dry-run] would run: {' '.join(argv)}{' < <prompt>' if stdin else ''}\n"
             f"[dry-run] prompt: {len(prompt):,} chars\n"
-            f"VERDICT: {'PLAN_READY' if role.name == 'tech-lead' else 'APPROVE'} — dry-run synthetic verdict\n"
+            "VERDICT: APPROVE — dry-run synthetic verdict\n"
         )
     else:
         argv, stdin = engine_argv(engine, role, prompt)

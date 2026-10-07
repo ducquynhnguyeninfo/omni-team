@@ -12,11 +12,11 @@
 │
 ├── team/                         canonical role definitions (tool-agnostic)
 │   ├── _protocol.md              shared rules: context, scope, severity, verdict, read-only
-│   ├── tech-lead.md  code-reviewer.md  test-engineer.md  data-reviewer.md
+│   ├── pm.md  tech-lead.md  code-reviewer.md  test-engineer.md  data-reviewer.md
 │   └── security-engineer.md  perf-engineer.md  qa-lead.md  smoke-tester.md
 │
 ├── skills/                       workflow entry points (SKILL.md works in Claude Code and Codex)
-│   └── omni-setup/  omni-task/  omni-plan/  omni-review/  omni-ship/
+│   └── omni-setup/  omni-task/  omni-plan/  omni-review/  omni-ship/  pm/
 │
 ├── project/                      ← the ONLY folder a host project edits
 │   ├── profile.yaml              structured facts (auto by default)
