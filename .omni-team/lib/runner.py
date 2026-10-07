@@ -1,138 +1,152 @@
 """
-Agent runner — wraps spawning a `claude -p` subprocess (or emitting an
-inline invocation prompt) for a single agent on a single scope.
+Gate runner — build a self-contained role prompt, run it through a headless
+engine (claude / codex / any CLI declared in defaults.yaml), parse the
+verdict, and append the verbatim output to the role's artifact file.
 
-The runner is intentionally thin: it builds a prompt, runs Claude headless,
-captures the verbatim output, classifies the verdict from the output,
-appends to the per-agent artifact file, and returns a (verdict, output) tuple.
+The prompt embeds the canonical role + protocol, so headless runs do not
+depend on install.py having been run.
 """
 
 from __future__ import annotations
 
 import datetime as dt
 import re
-import shlex
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
+from .roles import Role, compose_instructions
 
-VERDICT_PATTERNS = [
-    # order matters: more specific first
-    (re.compile(r"\bBLOCK\b"), "BLOCK"),
-    (re.compile(r"\bBLOCKED\b"), "BLOCKED"),
-    (re.compile(r"\bREQUEST[_ -]CHANGES\b", re.I), "REQUEST_CHANGES"),
-    (re.compile(r"\bNEEDS[_ -]WORK\b", re.I), "REQUEST_CHANGES"),
-    (re.compile(r"\bNEEDS[_ -]ATTENTION\b", re.I), "REQUEST_CHANGES"),
-    (re.compile(r"\bNEEDS[_ -]CLARIFICATION\b", re.I), "NEEDS_CLARIFICATION"),
-    (re.compile(r"\bSHIP[_ -]READY\b", re.I), "APPROVE"),
-    (re.compile(r"\bAPPROVE\b"), "APPROVE"),
-    (re.compile(r"\bADEQUATE\b"), "APPROVE"),
-    (re.compile(r"\bPASS\b"), "APPROVE"),
-    (re.compile(r"\bNOT[_ -]APPLICABLE\b", re.I), "NOT_APPLICABLE"),
-    (re.compile(r"\bNOT[_ -]IN[_ -]SCOPE\b", re.I), "NOT_APPLICABLE"),
+VERDICTS = (
+    "APPROVE", "REQUEST_CHANGES", "BLOCK", "NOT_APPLICABLE",
+    "NEEDS_CLARIFICATION", "BLOCKED", "PLAN_READY",
+)
+ALIASES = {
+    "SHIP_READY": "APPROVE", "PASS": "APPROVE", "ADEQUATE": "APPROVE",
+    "NEEDS_WORK": "REQUEST_CHANGES", "NEEDS_ATTENTION": "REQUEST_CHANGES",
+    "INSUFFICIENT": "REQUEST_CHANGES", "NOT_IN_SCOPE": "NOT_APPLICABLE",
+}
+# Tolerates markdown decoration such as **VERDICT:** `APPROVE`.
+_VERDICT_LINE = re.compile(r"^[\s>*_`#-]*VERDICT[*_`\s]*:[*_`\s]*(.*)$", re.IGNORECASE)
+_TOKENS = sorted(set(VERDICTS) | set(ALIASES), key=len, reverse=True)
+_TOKEN_RES = [
+    (tok, re.compile(r"^" + tok.replace("_", r"[ _-]") + r"(?![A-Za-z_])", re.IGNORECASE))
+    for tok in _TOKENS
 ]
 
 
+STDERR_TAIL_LINES = 30
+
+
+class EngineError(Exception):
+    pass
+
+
 @dataclass
-class AgentResult:
-    agent: str
+class GateResult:
+    role: str
     verdict: str
     output: str
     duration_s: float
     artifact_path: Path
 
 
-def classify_verdict(text: str) -> str:
-    # scan the LAST 60 lines (verdict block is at the bottom)
-    tail = "\n".join(text.splitlines()[-60:])
-    for pattern, verdict in VERDICT_PATTERNS:
-        if pattern.search(tail):
-            return verdict
+def parse_verdict(text: str) -> str:
+    """Return the LAST `VERDICT: <TOKEN>` line's token, or UNKNOWN. Never guesses from prose."""
+    for line in reversed(text.splitlines()):
+        match = _VERDICT_LINE.match(line)
+        if not match:
+            continue
+        rest = match.group(1).strip()
+        for token, rx in _TOKEN_RES:
+            if rx.match(rest):
+                return ALIASES.get(token, token)
+        return "UNKNOWN"
     return "UNKNOWN"
 
 
-def _build_prompt(agent: str, scope_summary: str, project_root: Path) -> str:
+def build_prompt(role: Role, protocol: str, invocation: str) -> str:
     return (
-        f"You are running headless inside `claude -p`. Act as the `{agent}` "
-        f"sub-agent defined in `.claude/agents/{agent}.md` — read that file "
-        f"first to load your role and rules.\n\n"
-        f"Project root: {project_root}\n\n"
-        f"Scope for this invocation:\n{scope_summary}\n\n"
-        f"Produce your full report exactly per the agent's Output format. "
-        f"End with the verdict line."
+        f"You are running headless as the omni-team role `{role.name}`. Your complete "
+        f"instructions follow; obey them exactly.\n\n"
+        f"{compose_instructions(role, protocol)}\n---\n\n"
+        f"## This invocation\n\n{invocation.strip()}\n\n"
+        f"Produce your full report using your role's output template. "
+        f"The last line must be the `VERDICT:` line."
     )
 
 
-def invoke(
+def engine_argv(engine: Dict[str, Any], role: Role, prompt: str) -> Tuple[List[str], Optional[str]]:
+    """Return (argv, stdin). Without a `{prompt}` element the prompt is piped through stdin."""
+    template = engine.get("cmd_run") if role.access == "run" and engine.get("cmd_run") else engine.get("cmd")
+    if not template:
+        raise EngineError("engine has no `cmd` argv template")
+    tier = str((engine.get("tiers") or {}).get(role.tier, ""))
+    argv = [prompt if arg == "{prompt}" else str(arg).replace("{tier}", tier) for arg in template]
+    return argv, (None if "{prompt}" in template else prompt)
+
+
+def _execute(argv: List[str], stdin: Optional[str], cwd: Path, timeout_s: int) -> str:
+    try:
+        done = subprocess.run(
+            argv, input=stdin, cwd=str(cwd), capture_output=True, text=True,
+            timeout=timeout_s, check=False,
+        )
+    except FileNotFoundError:
+        return f"[runner] `{argv[0]}` not found on PATH.\nVERDICT: BLOCKED — engine CLI missing\n"
+    except subprocess.TimeoutExpired:
+        return f"[runner] timed out after {timeout_s}s.\nVERDICT: BLOCKED — timeout\n"
+    output = done.stdout or ""
+    if done.returncode == 0:
+        return output
+    # The verdict must come from the report (stdout) only: some CLIs echo the prompt — which
+    # contains example VERDICT lines — to stderr. Re-state the stdout verdict as the last line.
+    verdict = parse_verdict(output)
+    stderr_tail = "\n".join((done.stderr or "").strip().splitlines()[-STDERR_TAIL_LINES:])
+    output += f"\n[runner] exit code {done.returncode}; stderr (last {STDERR_TAIL_LINES} lines):\n{stderr_tail}\n"
+    if verdict == "UNKNOWN":
+        return output + "VERDICT: BLOCKED — engine exited with an error\n"
+    return output + f"VERDICT: {verdict} — restated from the report; engine exited non-zero\n"
+
+
+def _append_artifact(path: Path, role: str, verdict: str, started: dt.datetime,
+                     duration_s: float, engine_name: str, output: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    header = (
+        f"\n\n---\n\n## Invocation {started.isoformat(timespec='seconds')}\n"
+        f"- role: `{role}`\n- engine: `{engine_name}`\n"
+        f"- verdict: **{verdict}**\n- duration: {duration_s:.1f}s\n\n### Output\n\n"
+    )
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(header + output.rstrip() + "\n")
+
+
+def run_gate(
     *,
-    agent: str,
-    scope_summary: str,
+    role: Role,
+    protocol: str,
+    invocation: str,
+    engine_name: str,
+    engine: Dict[str, Any],
     project_root: Path,
     artifact_path: Path,
-    claude_cmd: str = "claude",
-    timeout_s: int = 1800,
+    timeout_s: int,
     dry_run: bool = False,
-) -> AgentResult:
-    """Spawn `claude -p` for one agent, capture verbatim output."""
-    artifact_path.parent.mkdir(parents=True, exist_ok=True)
-    prompt = _build_prompt(agent, scope_summary, project_root)
-
+) -> GateResult:
+    prompt = build_prompt(role, protocol, invocation)
     started = dt.datetime.now()
     if dry_run:
+        argv, stdin = engine_argv(engine, role, "<prompt>")
         output = (
-            f"[DRY-RUN] would invoke: {claude_cmd} -p (agent={agent})\n"
-            f"---prompt---\n{prompt}\n---end---\n"
-            f"### Verdict\nAPPROVE — dry-run synthetic verdict\n"
+            f"[dry-run] would run: {' '.join(argv)}{' < <prompt>' if stdin else ''}\n"
+            f"[dry-run] prompt: {len(prompt):,} chars\n"
+            f"VERDICT: {'PLAN_READY' if role.name == 'tech-lead' else 'APPROVE'} — dry-run synthetic verdict\n"
         )
     else:
-        cmd = [claude_cmd, "-p", prompt]
-        try:
-            completed = subprocess.run(
-                cmd,
-                cwd=str(project_root),
-                capture_output=True,
-                text=True,
-                timeout=timeout_s,
-                check=False,
-            )
-            output = (completed.stdout or "") + (
-                f"\n[stderr]\n{completed.stderr}" if completed.stderr else ""
-            )
-            if completed.returncode != 0:
-                output += f"\n[exit-code {completed.returncode}]"
-        except FileNotFoundError:
-            output = (
-                f"[ERROR] `{claude_cmd}` not found in PATH. "
-                f"Set orchestrator.claude_cmd or install Claude CLI.\n"
-                f"### Verdict\nBLOCK — runner could not invoke Claude CLI\n"
-            )
-        except subprocess.TimeoutExpired:
-            output = (
-                f"[ERROR] {agent} timed out after {timeout_s}s\n"
-                f"### Verdict\nBLOCK — timeout\n"
-            )
-
+        argv, stdin = engine_argv(engine, role, prompt)
+        output = _execute(argv, stdin, project_root, timeout_s)
     duration_s = (dt.datetime.now() - started).total_seconds()
-    verdict = classify_verdict(output)
-
-    # Append per-agent artifact entry
-    header = (
-        f"\n\n---\n\n"
-        f"## Invocation: {started.isoformat()}\n"
-        f"- agent: `{agent}`\n"
-        f"- verdict: **{verdict}**\n"
-        f"- duration: {duration_s:.1f}s\n"
-        f"- cmd: `{shlex.join([claude_cmd, '-p', '<prompt>'])}`\n\n"
-        f"### Output\n\n"
-    )
-    with artifact_path.open("a", encoding="utf-8") as fh:
-        fh.write(header + output + "\n")
-
-    return AgentResult(
-        agent=agent,
-        verdict=verdict,
-        output=output,
-        duration_s=duration_s,
-        artifact_path=artifact_path,
-    )
+    verdict = parse_verdict(output)
+    _append_artifact(artifact_path, role.name, verdict, started, duration_s, engine_name, output)
+    return GateResult(role.name, verdict, output, duration_s, artifact_path)

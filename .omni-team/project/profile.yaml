@@ -1,0 +1,64 @@
+# =============================================================================
+# omni-team PROJECT PROFILE — structured facts about the host project.
+# =============================================================================
+# Works as-is: every `auto` value is inferred by the agents from the repository
+# (they list what they inferred under "Assumptions" in each report).
+# Fill values in when you want certainty — or run the `omni-setup` skill and let
+# an agent draft this file for you.
+#
+# Free-form rules (architecture, must-nots, per-role checks) go in
+# conventions.md next to this file. Framework defaults (signals, routing,
+# orchestrator engines) live in ../defaults.yaml; override any of those
+# top-level keys here. Schema: ../docs/profile.md. Examples: ../examples/.
+# =============================================================================
+
+version: 1
+
+project:
+  name: auto
+  description: auto
+
+work_unit:
+  label: Task                  # Ticket, Story, Issue, Mini Package, PR …
+  example_id: TASK-1
+  spec_root: auto              # folder holding specs/tickets; `none` if you have none
+
+# Independently built/tested parts of the repo. Empty → agents discover them.
+components: []
+# components:
+#   - name: api
+#     path: services/api                   # repo-relative; "." for single-component repos
+#     kind: backend                        # backend | frontend | mobile | desktop | cli | library | worker | data | infra | docs | other
+#     stack: "Python 3.12 · FastAPI · SQLAlchemy 2 · Alembic · PostgreSQL 16"
+#     commands:                            # run from `path`; omit what you don't have
+#       setup: "uv sync"
+#       lint: "ruff check . && ruff format --check ."
+#       typecheck: "mypy ."
+#       test: "pytest -q"
+#       build: ""
+#       run: "uvicorn app.main:app --reload"
+#     urls:
+#       app: "http://localhost:8000"
+#       health: "http://localhost:8000/health"
+
+# Repo-wide quality gate the implementer runs before asking for review.
+# `auto` → agents use each component's lint/typecheck/test commands.
+checks: auto
+# checks:
+#   - "make lint"
+#   - "make test"
+
+# --- Optional overrides of ../defaults.yaml ----------------------------------
+# quality_limits: { file_lines: 400 }
+# artifacts_dir: docs/agent-runs/{task_id}
+# human_gate: "Codex cross-check → manual commit"
+# signals:                                 # merged by name with the defaults
+#   schema_change:
+#     paths: ["db/migrations/**"]
+# routing:
+#   extra_add_if:                          # appended to the default add_if rules
+#     - name: billing-always-security
+#       when: { paths: ["src/billing/**"] }
+#       agents_add: [security-engineer]
+# orchestrator:
+#   engine: codex

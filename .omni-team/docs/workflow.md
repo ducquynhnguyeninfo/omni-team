@@ -1,70 +1,89 @@
-# Workflow
+# Workflow (host project)
 
-This file describes the 5-phase workflow that *host projects* follow when using omni-team. For the workflow of **working on omni-team itself**, see [definition-of-done.md](definition-of-done.md).
+How a project that vendors omni-team moves one work item from request to ship. The condensed version lives in [../AGENTS.md](../AGENTS.md); this file adds rationale and detail.
 
-## 5-phase workflow (host project)
+## Phases
 
-Every change goes through **Classify → Plan → Execute → Review → Ship**. Which gates run in Review depends on the diff and the manifest's [decision matrix](decision-matrix.md).
+```
+Classify ─► Plan ─► Implement ─► Review ─► Accept ─► Hand off ─► HUMAN GATE
+                         ▲          │         │
+                         └─ fix ◄───┴─────────┘   REQUEST_CHANGES / BLOCK (≤ 3 rounds per gate)
+```
 
-1. **Classify**
-   - Human + main Claude consult the matrix.
-   - Run `python orchestrator.py classify --mp <id> --base <ref>` to preview the gate sequence.
+| Phase | Who | Output |
+|---|---|---|
+| Classify | main agent (+ `orchestrator.py classify`) | task id, trivial vs non-trivial, gate list |
+| Plan | `tech-lead` | `runs/<id>/tech-lead.md` — phases, acceptance criteria, open questions |
+| Implement | main agent or human | code + green project checks |
+| Review | routed gates, serially | `runs/<id>/<role>.md` per gate |
+| Accept | `qa-lead`, then `smoke-tester` | acceptance table, smoke evidence |
+| Hand off | main agent | `runs/<id>/_summary.md`, message to the human |
+| Ship | **human only** | commit, push, merge |
 
-2. **Plan**
-   - For non-trivial work units: spawn `tech-lead` first. Returns phased plan.
-   - For trivial work (typo, rename): main Claude inline.
+## Choosing a task id
 
-3. **Execute**
-   - Main Claude implements layer-by-layer per plan.
-   - Use stack-specific slash commands (defined per host project, not by omni-team).
+Use the ticket/spec id when there is one (`PROJ-123`, `MP-04A`); otherwise a short kebab-case slug of the request. Allowed characters: letters, digits, `.`, `_`, `-`. The id names the artifacts folder and is how `qa-lead` finds the spec under `work_unit.spec_root`.
 
-4. **Review** (gates fire serially — never in parallel; they read disk state)
-   - `python orchestrator.py run --mp <id> --base <ref>` runs the full sequence.
-   - Schema touched → `dba`
-   - BE code → `qa-engineer` → `backend-reviewer` → `perf-engineer` (if new endpoint) → BE test gate
-   - FE code → FE test gate → `frontend-reviewer`
-   - Security-sensitive surface → `security-engineer`
-   - End of MP → `qa-lead` (acceptance-criteria walkthrough)
-   - FE-touching MP → `ui-smoke-engineer` after `qa-lead` SHIP-READY
+## Trivial vs non-trivial
 
-5. **Ship** (HUMAN ONLY)
-   - User runs Codex crosscheck.
-   - User runs `git commit` + `git push`.
-   - The orchestrator **never** auto-commits. See [critical-rules.md](critical-rules.md) §5.
+Trivial (no plan, no gates): ≲15 changed lines, docs-only, formatting, or a pure rename — **and** nothing security-, data- or contract-related. Everything else goes through routing. When unsure, run `classify`: if it returns no gates, you are in trivial territory.
+
+## Planning
+
+`tech-lead` is not a review gate; it runs before code exists. Skip it only for small fixes whose shape is obvious. Its acceptance-criteria list becomes `qa-lead`'s fallback acceptance source when there is no spec, so it is worth running for any feature.
+
+## Review gates
+
+- **Serial, in `routing.order`.** Later gates read earlier reports (e.g. `qa-lead` checks that P0 test gaps were closed). Running them in parallel races on artifacts and produces inconsistent verdicts.
+- **Fresh context per gate.** A sub-agent or separate process, not the implementer's own context — independence is the point. The in-session role-play fallback is allowed but must be flagged in the summary.
+- **Persist verbatim.** Append each report to `runs/<id>/<role>.md` with a timestamp heading. Under the report, add an `### Actions taken by implementer` list: fixed / deferred (with reason) / disputed (with reason).
 
 ## Retry budget
 
-Three `BLOCK` verdicts on the same scope → halt, append to `_post-ship-escapes.md`, escalate to user.
-
-Three `REQUEST_CHANGES` verdicts in a row on the same gate → halt with the same escape log; do not loop. The fix is wrong direction or scope is too large — both need human judgement.
-
-Default budgets in [`manifests/_starter.yaml`](../manifests/_starter.yaml) under `orchestrator:`. Tunable per project.
-
-## Decision matrix — quick reference
-
-| Change type | LoC | Gates (typical) |
+| Event | Limit (default) | On limit |
 |---|---|---|
-| Typo / rename / docs | <20 | test gate only |
-| Bug fix, single file, no DB | <100 | one reviewer (per stack) → gate |
-| New endpoint, existing tables | 100–500 | `qa-engineer` → `backend-reviewer` → `perf-engineer` → gate |
-| New table + endpoint | 200–800 | `dba` → `qa-engineer` → `backend-reviewer` → `perf-engineer` → gate |
-| Full-stack MP | 500–2000 | `tech-lead` → full 5-phase → `ui-smoke-engineer` |
-| Any MP touching FE | any | + `qa-engineer` E2E list → `qa-lead` coverage check → `ui-smoke-engineer` after SHIP-READY |
-| Touches auth / RBAC / PII / payment | any | + `security-engineer` mandatorily |
+| `REQUEST_CHANGES` on one gate | 3 | halt, append to `runs/<id>/_escapes.md`, escalate to the user |
+| `BLOCK` on one gate | 3 | same |
+| `NEEDS_CLARIFICATION` / `BLOCKED` | — | stop immediately, ask the user |
 
-This is the *default*. Host projects override via their manifest's `decision_matrix:`.
+Hitting the budget means the direction or the scope is wrong — a human decision, not another loop. Budgets: `orchestrator.retry_budget` in [../defaults.yaml](../defaults.yaml), overridable in the profile.
 
-## Outcomes logging
+## Artifacts
 
-After each MP, append a brief entry to the project's outcomes log:
+```
+.omni-team/runs/<task-id>/
+├── tech-lead.md          plan (append-only; re-plans append)
+├── <role>.md             one file per gate, every attempt appended
+├── smoke/                smoke-tester evidence (screenshots, logs)
+├── _state.json           orchestrator state (gates, attempts, verdicts)
+├── _summary.md           hand-off summary
+└── _escapes.md           budget exhaustions
+```
 
-- Which agents fired
-- Which blocked / requested changes
-- Total token cost
-- Any Codex catches the agents missed
+Per-role files keep each gate's history clean and let a later agent load just the report it needs. The folder location is `artifacts_dir` in the profile. Commit it for an audit trail, or add `.omni-team/runs/` to `.gitignore`.
 
-Review every 5 MPs to tune the matrix and per-agent rules.
+## Orchestrator (headless)
 
-## Working on omni-team itself
+`orchestrator.py` automates Review/Accept for terminals and CI: compute the diff, route, run each gate through an engine CLI (`claude -p`, `codex exec`, or your own), parse verdicts, persist state, enforce the budget, stop at the human gate.
 
-Different workflow — there are no "MPs" here. See [definition-of-done.md](definition-of-done.md) for the checklist that applies to changes inside this repo.
+| Command | Purpose |
+|---|---|
+| `classify --task <id>` | scope + matched rules + gate list; no AI calls |
+| `run --task <id> [--fresh]` | run pending gates; resumes from `_state.json`; adds newly-routed gates |
+| `run-gate <role> --task <id>` | force one gate |
+| `status --task <id>` | print state |
+| `prompt <role> --task <id>` | print the full prompt for a manual/fresh-session run |
+
+Useful flags: `--engine`, `--base <ref>`, `--committed-only`, `--spec <path>`, `--request "<text>"`, `--dry-run`, `--timeout <s>`. Exit codes: 0 ready · 1 paused for fixes · 2 config error · 3 REQUEST_CHANGES budget · 4 BLOCK budget · 5 unparseable verdict · 6 needs a human.
+
+CI sketch:
+
+```yaml
+- run: pip install -r .omni-team/requirements.txt
+- run: python3 .omni-team/orchestrator.py run --task "pr-${{ github.event.number }}" --base "origin/${{ github.base_ref }}" --committed-only
+  env: { ANTHROPIC_API_KEY: "${{ secrets.ANTHROPIC_API_KEY }}" }
+```
+
+## Learning loop
+
+After each work item, note in your project's log which gates fired, what they caught, and what the human (or a second-tool cross-check) caught that they missed. Every few items, tune `conventions.md` (missed rules) and routing (gates that fire uselessly or not at all).

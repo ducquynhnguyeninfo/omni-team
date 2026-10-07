@@ -1,0 +1,61 @@
+# Example: full-stack web app — FastAPI + PostgreSQL backend, Next.js frontend, Supabase Auth.
+# Copy to .omni-team/project/profile.yaml and adapt.
+version: 1
+
+project:
+  name: Example Fullstack MVP
+  description: >
+    Customer and admin portals plus a public MDX website. FastAPI + SQLAlchemy + Alembic on
+    PostgreSQL (Supabase), Next.js App Router with pnpm/Turbo, Supabase Auth, LLM features via OpenRouter.
+
+work_unit:
+  label: Mini Package
+  example_id: MP-04A
+  spec_root: document/sprints/
+
+artifacts_dir: document/agent-runs/{task_id}
+human_gate: "Codex cross-check → manual commit"
+
+components:
+  - name: api
+    path: example-backend
+    kind: backend
+    stack: "Python 3.12 · FastAPI · Pydantic v2 · SQLAlchemy 2 · Alembic · PostgreSQL 16 (Supabase)"
+    commands:
+      setup: "python -m venv .venv && .venv/bin/pip install -r requirements.txt"
+      lint: ".venv/bin/ruff check . && .venv/bin/ruff format --check ."
+      test: ".venv/bin/pytest -q"
+      run: "make dev"
+    urls: { app: "http://localhost:8000", health: "http://localhost:8000/health" }
+
+  - name: web
+    path: example-frontend
+    kind: frontend
+    stack: "TypeScript 5 · Next.js 16 App Router · React 19 · shadcn/ui · next-intl (en, vi, fr)"
+    commands:
+      setup: "pnpm install"
+      lint: "pnpm lint"
+      typecheck: "pnpm typecheck"
+      run: "pnpm dev"
+    urls: { app: "http://localhost:3000" }
+
+checks:
+  - "cd example-backend && .venv/bin/ruff check . && .venv/bin/pytest -q"
+  - "cd example-frontend && pnpm typecheck && pnpm lint"
+
+signals:
+  schema_change:
+    paths: ["example-backend/alembic/versions/**", "example-backend/app/models/**",
+            "example-backend/scripts/rbac_public.sql"]
+  security_sensitive:
+    - paths: ["example-backend/app/routers/auth*", "example-backend/app/services/auth*",
+              "example-backend/app/core/jwt*", "example-backend/app/core/dependencies.py",
+              "example-frontend/apps/web/app/api/auth/**", "example-frontend/apps/web/middleware.ts",
+              "example-backend/scripts/rbac_public.sql"]
+    - keywords: ["password", "token", "secret", "api_key", "cookie", "jwt"]
+
+routing:
+  extra_add_if:
+    - name: llm-endpoints
+      when: { keywords: ["openrouter", "_llm_paths", "prompt_template"] }
+      agents_add: [perf-engineer, security-engineer]

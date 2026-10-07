@@ -1,26 +1,22 @@
 #!/usr/bin/env python3
 """
-orchestrator.py — auto-run the omni-team gate pipeline for one work unit.
+orchestrator.py — headless runner for the omni-team review gates.
 
-Usage:
-    # Full pipeline against the diff since `main`:
-    python orchestrator.py run --mp MP-A06 --sprint 4
+    python3 .omni-team/orchestrator.py classify --task T-1        # which gates would run, no AI calls
+    python3 .omni-team/orchestrator.py run      --task T-1        # run pending gates serially
+    python3 .omni-team/orchestrator.py run-gate code-reviewer --task T-1
+    python3 .omni-team/orchestrator.py status   --task T-1
+    python3 .omni-team/orchestrator.py prompt   code-reviewer --task T-1   # print the full prompt
 
-    # Classify only (no invocations):
-    python orchestrator.py classify --mp MP-A06 --base main
+Common flags: --engine claude|codex|<custom>, --base <ref>, --committed-only,
+--spec <path>, --request "<text>", --profile <path>, --dry-run, --fresh.
 
-    # Re-run a single gate:
-    python orchestrator.py run-gate backend-reviewer --mp MP-A06 --sprint 4
+Exit codes: 0 ready for the human gate · 1 paused (fix findings, re-run) ·
+2 configuration error · 3 REQUEST_CHANGES budget exhausted · 4 BLOCK budget
+exhausted · 5 unparseable verdict · 6 needs a human (clarification / blocked env).
 
-    # Dry-run (no Claude calls; synthetic verdicts):
-    python orchestrator.py run --mp MP-A06 --sprint 4 --dry-run
-
-State file:
-    Per the manifest's `orchestrator.state_file_pattern`.
-    Default: document/sprints/{sprint}/agent-pow/{mp_id}/_state.json
-
-Stops at the human gate (default: "Codex crosscheck") — orchestrator never
-auto-commits, never auto-pushes, never runs the final reviewer.
+The orchestrator NEVER commits, pushes or merges. It stops at the human gate.
+Requires PyYAML (pip install -r .omni-team/requirements.txt).
 """
 
 from __future__ import annotations
@@ -28,339 +24,291 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import re
-import subprocess
 import sys
 from pathlib import Path
+from typing import Any, Dict, Optional
 
-ROOT = Path(__file__).resolve().parent
-PROJECT_ROOT = ROOT.parent
-sys.path.insert(0, str(ROOT))
+FRAMEWORK_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = FRAMEWORK_ROOT.parent
+sys.path.insert(0, str(FRAMEWORK_ROOT))
 
-from lib import manifest as _manifest        # noqa: E402
-from lib.decision import Scope, select_agents  # noqa: E402
-from lib.runner import invoke                  # noqa: E402
-from lib.state import GateState, RunState      # noqa: E402
+from lib import diffscope, profile  # noqa: E402
+from lib.roles import RoleError, load_protocol, role_by_name  # noqa: E402
+from lib.routing import RoutingError, select_gates  # noqa: E402
+from lib.runner import EngineError, build_prompt, run_gate  # noqa: E402
+from lib.state import GateState, RunState  # noqa: E402
 
-DEFAULT_MANIFEST = ROOT / "manifests" / "example.yaml"
-ROUTE_DECORATOR_RE = re.compile(r"@(?:app|router)\.(?:get|post|put|patch|delete)\(")
+TASK_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+PASSING = {"APPROVE", "NOT_APPLICABLE", "PLAN_READY"}
+EXIT_READY, EXIT_PAUSED, EXIT_CONFIG, EXIT_RC_BUDGET, EXIT_BLOCK_BUDGET, EXIT_UNKNOWN, EXIT_HUMAN = 0, 1, 2, 3, 4, 5, 6
+
+
+class Context:
+    """Everything one invocation needs: merged profile, diff scope, routing, paths."""
+
+    def __init__(self, args: argparse.Namespace) -> None:
+        self.args = args
+        self.tree = profile.load(args.profile)
+        orch = self.tree.get("orchestrator", {})
+        self.orch = orch
+        self.task_id = args.task
+        if not TASK_ID_RE.match(self.task_id):
+            raise profile.ProfileError(f"task id '{self.task_id}' may only contain letters, digits, . _ -")
+        self.artifacts = PROJECT_ROOT / str(self.tree["artifacts_dir"]).format(task_id=self.task_id)
+        self.state_path = self.artifacts / "_state.json"
+        self._diff: Optional[diffscope.DiffInfo] = None
+        self._selection = None
+
+    @property
+    def diff(self) -> diffscope.DiffInfo:
+        if self._diff is None:
+            self._diff = diffscope.compute(
+                PROJECT_ROOT,
+                self.args.base or str(self.orch.get("base_ref", "auto")),
+                bool(self.orch.get("include_uncommitted", True)) and not self.args.committed_only,
+                list(self.orch.get("exclude_paths", [])),
+                profile.components(self.tree),
+            )
+        return self._diff
+
+    @property
+    def selection(self):
+        if self._selection is None:
+            self._selection = select_gates(self.tree, self.diff.scope)
+        return self._selection
+
+    def engine(self) -> tuple:
+        name = self.args.engine or str(self.orch.get("engine", "claude"))
+        engines: Dict[str, Any] = self.orch.get("engines", {})
+        if name not in engines:
+            raise EngineError(f"engine '{name}' is not defined under orchestrator.engines ({', '.join(engines)})")
+        return name, engines[name]
+
+    def rel(self, path: Path) -> str:
+        try:
+            return str(path.relative_to(PROJECT_ROOT))
+        except ValueError:
+            return str(path)
 
 
 # ---------------------------------------------------------------------------
-# Scope classification
+# Reporting helpers
 # ---------------------------------------------------------------------------
 
-def _git(args: list[str], cwd: Path) -> str:
-    completed = subprocess.run(
-        ["git", *args],
-        cwd=str(cwd),
-        capture_output=True,
-        text=True,
-        check=False,
+def scope_summary(ctx: Context) -> str:
+    d, sel, wu = ctx.diff, ctx.selection, ctx.tree.get("work_unit", {})
+    fired = [name for name, on in sel.signals.items() if on]
+    files = "\n".join(f"  - {p}" for p in d.scope.changed_paths[:80])
+    more = len(d.scope.changed_paths) - 80
+    lines = [
+        f"- {wu.get('label', 'Task')} id: {ctx.task_id}",
+        f"- Acceptance source: {ctx.args.spec or 'locate by id under work_unit.spec_root (' + str(wu.get('spec_root', 'auto')) + ')'}",
+        f"- Request: {ctx.args.request or '(see spec / tech-lead plan)'}",
+        f"- Artifacts directory (earlier gate reports): {ctx.rel(ctx.artifacts)}/",
+        f"- Diff: base {d.base_ref}, {d.compared_to}",
+        f"- Lines added: {d.scope.loc}; files changed: {len(d.scope.changed_paths)}",
+        f"- Components touched: {', '.join(sorted(d.scope.components)) or '(none declared / auto)'}",
+        f"- Signals: {', '.join(fired) or '(none)'}",
+        f"- Routed gates in order: {', '.join(sel.gates) or '(none)'}",
+    ]
+    lines += [f"- Note: {n}" for n in d.notes]
+    lines.append("- Changed files:\n" + (files or "  (none)") + (f"\n  … and {more} more" if more > 0 else ""))
+    return "\n".join(lines)
+
+
+def invocation_text(ctx: Context, gate: GateState) -> str:
+    text = scope_summary(ctx)
+    if gate.attempts:
+        text += (
+            f"\n\nThis is attempt {gate.attempts + 1}. Your previous verdict was {gate.last_verdict}; "
+            f"previous reports are in {ctx.rel(ctx.artifacts / (gate.name + '.md'))}. "
+            f"Verify each earlier finding was addressed before looking for new ones."
+        )
+    return text
+
+
+def write_summary(ctx: Context, state: RunState) -> None:
+    rows = "\n".join(
+        f"| {g.name} | {g.status} | {g.last_verdict or '-'} | {g.attempts} | [{g.name}.md]({g.name}.md) |"
+        for g in state.gates
     )
-    return completed.stdout
-
-
-def _detect_stack(path: str, manifest: dict) -> str | None:
-    be_root = manifest["backend"].get("root", "")
-    fe_root = manifest["frontend"].get("root", "")
-    db_versions = manifest["database"]["migrations"].get("versions_dir", "")
-    if db_versions and path.startswith(db_versions):
-        return "database"
-    if be_root and (path.startswith(be_root + "/") or path == be_root):
-        return "backend"
-    if fe_root and (path.startswith(fe_root + "/") or path == fe_root):
-        return "frontend"
-    return None
-
-
-def compute_scope(manifest: dict, base_ref: str) -> Scope:
-    diff_files = _git(
-        ["diff", "--name-only", f"{base_ref}...HEAD"], PROJECT_ROOT
-    ).splitlines()
-    diff_text = _git(["diff", f"{base_ref}...HEAD"], PROJECT_ROOT)
-    loc = sum(1 for ln in diff_text.splitlines() if ln.startswith("+") and not ln.startswith("+++"))
-
-    scope = Scope(loc=loc, diff_text=diff_text, changed_paths=diff_files)
-
-    for p in diff_files:
-        stk = _detect_stack(p, manifest)
-        if stk:
-            scope.stacks.add(stk)
-
-    # new_route: any added @router.<verb> in BE diff
-    if ROUTE_DECORATOR_RE.search(diff_text):
-        # only count if it is an addition line
-        for ln in diff_text.splitlines():
-            if ln.startswith("+") and not ln.startswith("+++") and ROUTE_DECORATOR_RE.search(ln):
-                scope.new_route = True
-                break
-
-    # schema_change: any new file in migrations versions_dir
-    db_versions = manifest["database"]["migrations"].get("versions_dir", "")
-    if db_versions and any(p.startswith(db_versions) for p in diff_files):
-        scope.schema_change = True
-
-    # pii_fields_touched: scan diff for PII keywords
-    pii_csv = manifest.get("security", {}).get("pii_fields_csv", "")
-    for piif in [p.strip() for p in pii_csv.split(",") if p.strip()]:
-        if piif.lower() in diff_text.lower():
-            scope.pii_fields_touched.add(piif)
-
-    return scope
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-def _state_path(manifest: dict, mp_id: str, sprint: str) -> Path:
-    pattern: str = manifest["orchestrator"]["state_file_pattern"]
-    return PROJECT_ROOT / pattern.format(mp_id=mp_id, sprint=sprint)
-
-
-def _artifact_path(manifest: dict, mp_id: str, sprint: str, agent: str) -> Path:
-    pattern: str = manifest["artifact_dir"]
-    base = PROJECT_ROOT / pattern.format(mp_id=mp_id, sprint=sprint)
-    return base / f"{agent}.md"
-
-
-def _post_ship_path(manifest: dict, mp_id: str, sprint: str) -> Path:
-    pattern: str = manifest["artifact_dir"]
-    base = PROJECT_ROOT / pattern.format(mp_id=mp_id, sprint=sprint)
-    return base / "_post-ship-escapes.md"
-
-
-def _scope_summary(scope: Scope, mp_id: str, sprint: str, manifest: dict) -> str:
-    spec_root = manifest.get("spec_root", "")
-    return (
-        f"- {manifest['work_unit_label']} id: {mp_id}\n"
-        f"- sprint: {sprint}\n"
-        f"- spec root: {spec_root}\n"
-        f"- LoC changed: {scope.loc}\n"
-        f"- stacks touched: {', '.join(sorted(scope.stacks)) or '(none)'}\n"
-        f"- new route added: {scope.new_route}\n"
-        f"- schema change: {scope.schema_change}\n"
-        f"- PII fields touched: {', '.join(sorted(scope.pii_fields_touched)) or '(none)'}\n"
-        f"- changed files (first 30):\n"
-        + "\n".join(f"    - {p}" for p in scope.changed_paths[:30])
+    body = (
+        f"# omni-team run — {state.task_id}\n\n"
+        f"- phase: **{state.phase}**{(' — ' + state.halt_reason) if state.halt_reason else ''}\n"
+        f"- base rule: {state.base_rule}; add rules: {', '.join(state.add_rules) or '(none)'}\n"
+        f"- next step: {ctx.tree.get('human_gate', 'human review')}\n\n"
+        f"| Gate | Status | Last verdict | Attempts | Report |\n|---|---|---|---|---|\n{rows}\n"
     )
+    (ctx.artifacts / "_summary.md").write_text(body, encoding="utf-8")
+
+
+def log_escape(ctx: Context, gate: GateState, reason: str) -> None:
+    path = ctx.artifacts / "_escapes.md"
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(
+            f"\n## {dt.datetime.now().isoformat(timespec='seconds')} — {gate.name}\n"
+            f"- reason: **{reason}**\n- last verdict: {gate.last_verdict}\n- attempts: {gate.attempts}\n"
+        )
 
 
 # ---------------------------------------------------------------------------
 # Subcommands
 # ---------------------------------------------------------------------------
 
-def cmd_classify(args: argparse.Namespace, manifest: dict) -> int:
-    scope = compute_scope(manifest, args.base)
-    agents, base_rule = select_agents(manifest, scope)
-    print(f"📊 Scope")
-    print(_scope_summary(scope, args.mp, args.sprint or "?", manifest))
-    print()
-    print(f"🎯 Matched base rule: {base_rule}")
-    print(f"🧩 Gates to run ({len(agents)}):")
-    for a in agents:
-        print(f"   • {a}")
-    return 0
+def cmd_classify(ctx: Context) -> int:
+    sel = ctx.selection
+    print("📊 Scope\n" + scope_summary(ctx))
+    print(f"\n🎯 Base rule: {sel.base_rule}")
+    print(f"➕ Add rules: {', '.join(sel.add_rules) or '(none)'}")
+    print(f"🧩 Gates ({len(sel.gates)}): {' → '.join(sel.gates) or 'none — run the project checks only'}")
+    return EXIT_READY
 
 
-def cmd_run(args: argparse.Namespace, manifest: dict) -> int:
-    scope = compute_scope(manifest, args.base)
-    agents, base_rule = select_agents(manifest, scope)
+def _execute_gate(ctx: Context, gate: GateState):
+    engine_name, engine = ctx.engine()
+    return run_gate(
+        role=role_by_name(gate.name),
+        protocol=load_protocol(),
+        invocation=invocation_text(ctx, gate),
+        engine_name=engine_name,
+        engine=engine,
+        project_root=PROJECT_ROOT,
+        artifact_path=ctx.artifacts / f"{gate.name}.md",
+        timeout_s=int(ctx.args.timeout or ctx.orch.get("timeout_s", 1800)),
+        dry_run=ctx.args.dry_run,
+    )
 
-    state_path = _state_path(manifest, args.mp, args.sprint)
-    if state_path.exists() and not args.fresh:
-        state = RunState.from_path(state_path)
-        print(f"📂 Resuming state: {state_path.relative_to(PROJECT_ROOT)}")
+
+def _record(ctx: Context, state: RunState, gate: GateState, verdict: str) -> Optional[int]:
+    """Update gate state from a verdict. Returns an exit code to stop with, or None to continue."""
+    budget = ctx.orch.get("retry_budget", {})
+    gate.attempts += 1
+    gate.last_verdict = verdict
+    gate.last_run_at = dt.datetime.now().isoformat(timespec="seconds")
+    if verdict in PASSING:
+        gate.status = "passed"
+        return None
+    if verdict in ("REQUEST_CHANGES", "BLOCK"):
+        counter = "request_changes_count" if verdict == "REQUEST_CHANGES" else "block_count"
+        limit = int(budget.get("request_changes_max" if verdict == "REQUEST_CHANGES" else "block_max", 3))
+        setattr(gate, counter, getattr(gate, counter) + 1)
+        gate.status = "request_changes" if verdict == "REQUEST_CHANGES" else "block"
+        if getattr(gate, counter) >= limit:
+            state.phase, state.halt_reason = "halted", f"{gate.name}: {verdict} budget ({limit}) exhausted"
+            log_escape(ctx, gate, f"{verdict.lower()} budget exhausted")
+            return EXIT_RC_BUDGET if verdict == "REQUEST_CHANGES" else EXIT_BLOCK_BUDGET
+        print(f"   ⏸  fix the findings in {ctx.rel(ctx.artifacts / (gate.name + '.md'))}, then re-run")
+        return EXIT_PAUSED
+    gate.status = "needs_human" if verdict in ("NEEDS_CLARIFICATION", "BLOCKED") else "error"
+    state.phase, state.halt_reason = "halted", f"{gate.name}: {verdict}"
+    return EXIT_HUMAN if gate.status == "needs_human" else EXIT_UNKNOWN
+
+
+def cmd_run(ctx: Context) -> int:
+    sel = ctx.selection
+    if ctx.state_path.exists() and not ctx.args.fresh:
+        state = RunState.from_path(ctx.state_path)
+        added = state.sync_gates(sel.gates)
+        state.phase, state.halt_reason = "review", ""
+        print(f"📂 resuming {ctx.rel(ctx.state_path)}" + (f" (+ new gates: {', '.join(added)})" if added else ""))
     else:
-        state = RunState(
-            mp_id=args.mp,
-            phase="review",
-            base_rule=base_rule,
-            gates=[GateState(name=a) for a in agents],
-        )
-
-    state.save(state_path)
-    print(f"🚀 Running {len(agents)} gate(s) for {args.mp} (rule: {base_rule})")
-
-    budget_block = manifest["orchestrator"]["retry_budget"]["block_max"]
-    budget_rc = manifest["orchestrator"]["retry_budget"]["request_changes_max"]
-    claude_cmd = manifest["orchestrator"]["claude_cmd"]
-    scope_summary = _scope_summary(scope, args.mp, args.sprint, manifest)
+        state = RunState(task_id=ctx.task_id, base_rule=sel.base_rule, add_rules=sel.add_rules,
+                         gates=[GateState(name=g) for g in sel.gates])
+    state.save(ctx.state_path)
+    print(f"🚀 {ctx.task_id}: {' → '.join(g.name for g in state.gates) or 'no gates'} (engine: {ctx.engine()[0]})")
 
     for gate in state.gates:
         if gate.status == "passed":
-            print(f"   ✅ {gate.name} already passed; skipping")
+            print(f"   ✅ {gate.name}: already passed")
             continue
-
-        artifact_path = _artifact_path(manifest, args.mp, args.sprint, gate.name)
-        print(f"\n--- {gate.name} (attempt {gate.retry_count + 1}) ---")
-
-        result = invoke(
-            agent=gate.name,
-            scope_summary=scope_summary,
-            project_root=PROJECT_ROOT,
-            artifact_path=artifact_path,
-            claude_cmd=claude_cmd,
-            timeout_s=args.timeout,
-            dry_run=args.dry_run,
-        )
-        gate.last_verdict = result.verdict
-        gate.last_run_at = dt.datetime.now().isoformat()
-
-        if result.verdict in {"APPROVE", "NOT_APPLICABLE"}:
-            gate.status = "passed"
-            print(f"   ✅ {gate.name}: {result.verdict}")
-        elif result.verdict == "REQUEST_CHANGES":
-            gate.retry_count += 1
-            gate.status = "request_changes"
-            print(f"   ✋ {gate.name}: REQUEST_CHANGES (retries used {gate.retry_count}/{budget_rc})")
-            if gate.retry_count >= budget_rc:
-                state.halted = True
-                state.halt_reason = f"{gate.name} exceeded REQUEST_CHANGES budget"
-                _escape(manifest, args, state, gate, "request_changes-budget")
-                state.save(state_path)
-                return 3
-            state.save(state_path)
-            print(f"   ⏸  Pausing pipeline so engineer can address findings.")
-            print(f"   ▶  Re-run when fixes are in: orchestrator.py run --mp {args.mp} --sprint {args.sprint}")
-            return 0
-        elif result.verdict in {"BLOCK", "BLOCKED"}:
-            gate.retry_count += 1
-            gate.status = "block"
-            print(f"   ⛔ {gate.name}: BLOCK (retries used {gate.retry_count}/{budget_block})")
-            if gate.retry_count >= budget_block:
-                state.halted = True
-                state.halt_reason = f"{gate.name} blocked {budget_block} times"
-                _escape(manifest, args, state, gate, "block-budget")
-                state.save(state_path)
-                return 4
-            state.save(state_path)
-            print(f"   ⏸  Pausing. Address the BLOCK and re-run.")
-            return 0
-        else:
-            gate.status = "error"
-            state.halted = True
-            state.halt_reason = f"{gate.name} returned UNKNOWN verdict"
-            state.save(state_path)
-            print(f"   ❓ {gate.name}: UNKNOWN — see {artifact_path}")
-            return 5
-
-        state.save(state_path)
+        print(f"   ▶  {gate.name} (attempt {gate.attempts + 1}) …", flush=True)
+        result = _execute_gate(ctx, gate)
+        stop = _record(ctx, state, gate, result.verdict)
+        print(f"   {'✅' if stop is None else '✋'} {gate.name}: {result.verdict} ({result.duration_s:.0f}s)")
+        state.save(ctx.state_path)
+        if stop is not None:
+            write_summary(ctx, state)
+            return stop
 
     state.phase = "ready_for_human"
-    state.save(state_path)
-    print()
-    print(f"🏁 All gates passed.")
-    print(f"   Next step (HUMAN): {manifest['orchestrator']['final_human_gate']}")
-    print(f"   State: {state_path.relative_to(PROJECT_ROOT)}")
-    return 0
+    state.save(ctx.state_path)
+    write_summary(ctx, state)
+    print(f"\n🏁 all gates passed. Next (HUMAN): {ctx.tree.get('human_gate')}")
+    print(f"   summary: {ctx.rel(ctx.artifacts / '_summary.md')}")
+    return EXIT_READY
 
 
-def cmd_run_gate(args: argparse.Namespace, manifest: dict) -> int:
-    scope = compute_scope(manifest, args.base)
-    scope_summary = _scope_summary(scope, args.mp, args.sprint, manifest)
-    artifact_path = _artifact_path(manifest, args.mp, args.sprint, args.agent)
-    result = invoke(
-        agent=args.agent,
-        scope_summary=scope_summary,
-        project_root=PROJECT_ROOT,
-        artifact_path=artifact_path,
-        claude_cmd=manifest["orchestrator"]["claude_cmd"],
-        timeout_s=args.timeout,
-        dry_run=args.dry_run,
-    )
-    print(f"{args.agent}: {result.verdict}  ({result.duration_s:.1f}s)")
-    print(f"artifact: {artifact_path.relative_to(PROJECT_ROOT)}")
-    return 0 if result.verdict in {"APPROVE", "NOT_APPLICABLE"} else 1
+def cmd_run_gate(ctx: Context) -> int:
+    state = RunState.from_path(ctx.state_path) if ctx.state_path.exists() else RunState(task_id=ctx.task_id)
+    gate = state.gate(ctx.args.role) or GateState(name=ctx.args.role)
+    if state.gate(gate.name) is None:
+        state.gates.append(gate)
+    result = _execute_gate(ctx, gate)
+    stop = _record(ctx, state, gate, result.verdict)
+    state.save(ctx.state_path)
+    print(f"{gate.name}: {result.verdict} ({result.duration_s:.0f}s) → {ctx.rel(result.artifact_path)}")
+    return EXIT_READY if stop is None else stop
 
 
-def cmd_status(args: argparse.Namespace, manifest: dict) -> int:
-    state_path = _state_path(manifest, args.mp, args.sprint)
-    if not state_path.exists():
-        print(f"no state file at {state_path}")
-        return 1
-    state = RunState.from_path(state_path)
-    print(f"📂 {state_path.relative_to(PROJECT_ROOT)}")
-    print(f"   phase: {state.phase}")
-    print(f"   base rule: {state.base_rule}")
-    print(f"   halted: {state.halted}{(' — ' + state.halt_reason) if state.halted else ''}")
-    print()
+def cmd_status(ctx: Context) -> int:
+    if not ctx.state_path.exists():
+        print(f"no state yet at {ctx.rel(ctx.state_path)}")
+        return EXIT_PAUSED
+    state = RunState.from_path(ctx.state_path)
+    icons = {"passed": "✅", "request_changes": "✋", "block": "⛔", "needs_human": "🙋", "error": "❓"}
+    print(f"📂 {ctx.rel(ctx.state_path)}\n   phase: {state.phase}{(' — ' + state.halt_reason) if state.halt_reason else ''}")
     for g in state.gates:
-        icon = {"passed": "✅", "block": "⛔", "request_changes": "✋", "pending": "·", "error": "❓"}.get(g.status, "?")
-        print(f"   {icon} {g.name:20s} retries={g.retry_count}  last={g.last_verdict or '-'}")
-    return 0
+        print(f"   {icons.get(g.status, '·')} {g.name:18s} attempts={g.attempts} last={g.last_verdict or '-'}")
+    return EXIT_READY if state.phase == "ready_for_human" else EXIT_PAUSED
 
 
-def _escape(
-    manifest: dict,
-    args: argparse.Namespace,
-    state: RunState,
-    gate: GateState,
-    reason: str,
-) -> None:
-    path = _post_ship_path(manifest, args.mp, args.sprint)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    entry = (
-        f"\n\n---\n\n"
-        f"## Escape: {dt.datetime.now().isoformat()}\n"
-        f"- agent: `{gate.name}`\n"
-        f"- reason: **{reason}**\n"
-        f"- last verdict: {gate.last_verdict}\n"
-        f"- retries: {gate.retry_count}\n"
-        f"- halt_reason: {state.halt_reason}\n"
-    )
-    with path.open("a", encoding="utf-8") as fh:
-        fh.write(entry)
+def cmd_prompt(ctx: Context) -> int:
+    role = role_by_name(ctx.args.role)
+    print(build_prompt(role, load_protocol(), invocation_text(ctx, GateState(name=role.name))))
+    return EXIT_READY
 
 
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
-def _add_common(p: argparse.ArgumentParser) -> None:
-    p.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
-    p.add_argument("--mp", required=True, help="Work unit id (e.g. MP-A06)")
-    p.add_argument("--sprint", default="", help="Sprint number / label")
-    p.add_argument("--base", default="origin/main", help="Git base ref for diff")
-    p.add_argument("--timeout", type=int, default=1800)
-    p.add_argument("--dry-run", action="store_true")
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="cmd", required=True)
 
-    p_class = sub.add_parser("classify", help="Print scope and gate plan; do not invoke.")
-    _add_common(p_class)
+    def common(p: argparse.ArgumentParser) -> None:
+        p.add_argument("--task", required=True, help="work-unit id, e.g. TASK-12 (used for the artifacts folder)")
+        p.add_argument("--profile", type=Path, help="profile path (default: .omni-team/project/profile.yaml)")
+        p.add_argument("--base", help="git base ref (default: orchestrator.base_ref)")
+        p.add_argument("--committed-only", action="store_true", help="ignore uncommitted / untracked changes")
+        p.add_argument("--spec", help="spec / ticket path passed to the roles")
+        p.add_argument("--request", help="plain-language task statement passed to the roles")
+        p.add_argument("--engine", help="engine name under orchestrator.engines (default: orchestrator.engine)")
+        p.add_argument("--timeout", type=int, help="per-gate timeout in seconds")
+        p.add_argument("--dry-run", action="store_true", help="no AI calls; synthetic APPROVE verdicts")
 
-    p_run = sub.add_parser("run", help="Run the full pipeline.")
-    _add_common(p_run)
-    p_run.add_argument("--fresh", action="store_true", help="Ignore existing state file")
+    for name, helptext in (("classify", "show scope and routed gates"), ("run", "run pending gates"),
+                           ("status", "show state")):
+        p = sub.add_parser(name, help=helptext)
+        common(p)
+        if name == "run":
+            p.add_argument("--fresh", action="store_true", help="discard existing state and start over")
+    for name, helptext in (("run-gate", "run one named gate"), ("prompt", "print a role's full prompt")):
+        p = sub.add_parser(name, help=helptext)
+        p.add_argument("role")
+        common(p)
+    return parser
 
-    p_gate = sub.add_parser("run-gate", help="Re-run a single named gate.")
-    _add_common(p_gate)
-    p_gate.add_argument("agent")
 
-    p_status = sub.add_parser("status", help="Show the state of the current run.")
-    p_status.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
-    p_status.add_argument("--mp", required=True)
-    p_status.add_argument("--sprint", default="")
-
-    args = parser.parse_args()
-
+def main(argv: Optional[list] = None) -> int:
+    args = build_parser().parse_args(argv)
+    dispatch = {"classify": cmd_classify, "run": cmd_run, "run-gate": cmd_run_gate,
+                "status": cmd_status, "prompt": cmd_prompt}
     try:
-        manifest = _manifest.load(args.manifest)
-    except _manifest.ManifestError as e:
-        print(f"❌ {e}", file=sys.stderr)
-        return 2
-
-    dispatch = {
-        "classify": cmd_classify,
-        "run": cmd_run,
-        "run-gate": cmd_run_gate,
-        "status": cmd_status,
-    }
-    return dispatch[args.cmd](args, manifest)
+        return dispatch[args.cmd](Context(args))
+    except (profile.ProfileError, RoutingError, RoleError, EngineError, diffscope.GitError) as exc:
+        print(f"❌ {exc}", file=sys.stderr)
+        return EXIT_CONFIG
 
 
 if __name__ == "__main__":

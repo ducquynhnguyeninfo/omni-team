@@ -1,71 +1,68 @@
 # Architecture
 
-omni-team has two orthogonal pieces: a **template/manifest renderer** ([`bootstrap.py`](../bootstrap.py)) and an **orchestrator state machine** ([`orchestrator.py`](../orchestrator.py)). They share a [`lib/`](../lib/) core but can be used independently.
+omni-team is a folder of **data and prose** (roles, protocol, skills, defaults) plus two small, optional Python entry points that adapt it to tools (`install.py`) and run it headless (`orchestrator.py`).
 
-## 3-layer model
+## Three layers, resolved at run time
 
-Every agent prompt mixes three concerns. omni-team separates them so the same role definition can run against different projects.
-
-| Layer | What it captures | Where it lives | Edit when |
+| Layer | Captures | Lives in | Resolved |
 |---|---|---|---|
-| **1 — Role** | "You are the Senior BE Engineer doing peer review." | [`templates/*.md`](../templates/) | Adding/removing an agent role |
-| **2 — Process** | "Identify scope → apply rules → emit verdict block." | [`templates/*.md`](../templates/) | Changing the review workflow |
-| **3 — Project conventions** | "Error shape is `LeanApiError`. Soft-delete via `deleted_at`." | [`manifests/<project>.yaml`](../manifests/) | Onboarding a new project, or facts changed |
+| 1 — Role | "You are the Security Engineer; you own authN/Z, secrets, injection…" | `team/<role>.md` | static |
+| 2 — Process | context loading, scope, severity, finding format, verdict line, read-only | `team/_protocol.md` (+ each role's workflow) | static |
+| 3 — Project | "Errors are `AppError`; migrations in `db/changes`; never touch `auth.*`" | `project/profile.yaml`, `project/conventions.md` | **by the agent, at run time** |
 
-Templates reference Layer-3 keys with `{{dotted.path}}`. At bootstrap time `bootstrap.py` reads the manifest, substitutes every placeholder, and writes the resolved agent prompt into `.claude/agents/` — exactly where Claude Code expects to load agents from. See [manifest.md](manifest.md) for the placeholder syntax.
+Earlier versions rendered Layer 3 into templates through 100+ `{{placeholders}}`; a missing key broke the bootstrap, and every role assumed a backend/frontend/database web stack. Now Layer 3 is *read* by the role when it runs, with inference from the repository for anything not written down. Consequences:
 
-## Bootstrap flow
+- **Zero-config start.** Copy the folder; roles work immediately and report their assumptions.
+- **Stack-agnostic roles.** Checklists talk about "entry points", "data-access layer", "UI string catalogue"; the protocol's *stack lens* tells the model to map them onto whatever stack it finds.
+- **One source for every tool.** Roles are plain Markdown; adapters only change the wrapper format.
 
-```
-manifests/<project>.yaml      templates/<agent>.md
-        │                                       │
-        ▼                                       ▼
-   lib/manifest.py  ──────────►   lib/render.py
-        (load + dotted lookup)              ({{key}} → value, missing-key report)
-                                                 │
-                                                 ▼
-                                       .claude/agents/<agent>.md
-                                       (auto-loaded by Claude Code)
-```
-
-Failure modes:
-- Missing key in manifest → `bootstrap.py` exits non-zero, lists every unresolved `{{path}}`.
-- Manifest YAML invalid → fail fast with line number.
-- Output directory not writable → fail fast.
-
-## Orchestrator state machine
+## Components
 
 ```
-classify  →  review (gates loop)  →  ready_for_human  →  HUMAN GATE
-                ↑   ↓
-                │   REQUEST_CHANGES → pause, engineer fixes, re-run
-                │   BLOCK x3       → halt, log to _post-ship-escapes.md
-                │
-                APPROVE / NOT_APPLICABLE → next gate
+                ┌──────────── team/*.md, _protocol.md, skills/*/SKILL.md (canonical) ────────────┐
+                │                                                                                 │
+   install.py ──┤ lib/roles.py  ─► lib/adapters.py ─► .claude/agents, .claude/skills,            │
+   (stdlib)     │                                     .codex/agents/*.toml, .agents/skills,       │
+                │                                     pointer blocks in CLAUDE.md/AGENTS.md/GEMINI.md
+                │                                                                                 │
+ orchestrator ──┤ lib/profile.py (defaults.yaml ⊕ project/profile.yaml)                           │
+   (PyYAML)     │ lib/diffscope.py (git → Scope) ─► lib/routing.py (signals + rules → gates)      │
+                │ lib/runner.py (role+protocol+invocation → engine CLI → VERDICT) ─► runs/<id>/   │
+                │ lib/state.py (_state.json)                                                      │
+                └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- `classify` reads the diff, evaluates the manifest's `decision_matrix:`, prints the gate sequence — no agent invocations.
-- `run` walks that sequence serially, invoking each agent via `claude -p` (Layer 1+2 prompt rendered with Layer 3 facts), parses the verdict from stdout, persists `GateState` to `_state.json`.
-- `run-gate <agent>` force-runs a single named gate (bypasses classification).
-- `status` pretty-prints the current `_state.json`.
+| Module | Responsibility | Dependencies |
+|---|---|---|
+| `lib/roles.py` | parse role/skill frontmatter, validate, compose role + protocol | stdlib |
+| `lib/adapters.py` | render Claude agent Markdown, Codex TOML, skills; pointer blocks; managed-file marker | stdlib |
+| `lib/profile.py` | load and merge `defaults.yaml` + `project/profile.yaml` | PyYAML |
+| `lib/diffscope.py` | git diff (merge-base → working tree, untracked, excludes) → `Scope` | stdlib + git |
+| `lib/routing.py` | evaluate predicates and signals, select and order gates | stdlib |
+| `lib/runner.py` | build prompt, run engine argv, parse verdict, append artifact | stdlib |
+| `lib/state.py` | `RunState` / `GateState` JSON persistence | stdlib |
 
-Verdict regex (in [`lib/runner.py`](../lib/runner.py)) is fixed for now — see [critical-rules.md](critical-rules.md) §4.
+`install.py` imports only stdlib modules so a freshly copied folder can register itself without `pip`. Only the orchestrator needs PyYAML.
 
-## State file
+## State machine (orchestrator)
 
-`_state.json` lives next to the agent artifacts under `agent-pow/<MP-ID>/` and holds:
+```
+classify ─► review ──(all gates passed)──► ready_for_human ─► HUMAN GATE
+              │ ▲
+              │ └── re-run after fixes (passed gates skipped, newly-routed gates added)
+              ├── REQUEST_CHANGES / BLOCK within budget ─► paused (exit 1)
+              ├── budget exhausted ─► halted (exit 3/4) + _escapes.md
+              ├── NEEDS_CLARIFICATION / BLOCKED ─► halted (exit 6)
+              └── no parseable VERDICT ─► halted (exit 5)
+```
 
-- Per-gate verdict (`APPROVE` / `REQUEST_CHANGES` / `BLOCK` / `NOT_APPLICABLE` / `PENDING`)
-- Per-gate retry count (against `orchestrator.retry_budget`)
-- Pointer to verbatim agent output file
-- Terminal state (`ready_for_human` or `halted`)
+Gate statuses: `pending`, `passed`, `request_changes`, `block`, `needs_human`, `error`.
 
-Reset with `--fresh`. Inspect with `python orchestrator.py status`.
+## Design decisions
 
-## Why sequential gates
-
-Reviewer agents read disk state — `qa-lead.md` references the previous agents' verdicts under `agent-pow/<MP-ID>/`. Running in parallel would race on the artifact files and produce non-deterministic verdicts. The orchestrator enforces serial execution; do not work around this. See [critical-rules.md](critical-rules.md) §8.
-
-## Why no DEV agent
-
-omni-team is a **reviewer** team, not an agile loop. Code authoring is done by the main Claude session or a human, working from the reviewers' findings. This is a deliberate departure from older "agile loop" agent setups — see [README.md](../README.md) §Differences-vs-legacy.
+- **Reviewers, not authors.** No "developer" role: the main agent or a human writes code from the findings. This keeps reviewers independent of the work they judge.
+- **Serial gates.** Later gates read earlier reports; parallel runs race on artifacts and on the implementer's fixes.
+- **Strict verdict line.** `VERDICT: <TOKEN>` on the last matching line; anything else is `UNKNOWN` and halts. Inferring "looks approved" from prose defeats the audit trail.
+- **Working-tree scope.** Review happens before commit, so uncommitted and untracked files are in scope by default.
+- **Data-driven routing.** Signals and rules are YAML; Python only evaluates. Stack knowledge lives in signal patterns, which projects can override by name.
+- **Never ship.** No component commits, pushes, merges or tags.

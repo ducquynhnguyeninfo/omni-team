@@ -1,0 +1,47 @@
+# Example: published Python library (no app to run, public API is the contract).
+version: 1
+
+project:
+  name: tidyframe
+  description: >
+    Pure-Python library for validating and normalising tabular data (pandas/polars adapters).
+    Published to PyPI, semantic versioning, supports Python 3.9–3.13.
+
+work_unit:
+  label: Issue
+  example_id: "GH-87"
+  spec_root: docs/rfcs/        # larger changes start as an RFC
+
+components:
+  - name: lib
+    path: src/tidyframe
+    kind: library
+    stack: "Python 3.9–3.13 · typing-first · optional pandas / polars extras · hatch"
+    commands:
+      setup: "hatch env create"
+      lint: "hatch run lint:all"          # ruff + mypy --strict
+      test: "hatch run test:cov"
+      build: "hatch build"
+  - name: docs
+    path: docs
+    kind: docs
+    stack: "MkDocs Material · mkdocstrings"
+    commands:
+      build: "hatch run docs:build"
+
+checks:
+  - "hatch run lint:all"
+  - "hatch run test:cov"
+
+signals:
+  api_surface_change:
+    - paths: ["src/tidyframe/__init__.py", "src/tidyframe/api/**"]
+    - added_lines: ['^def [a-z]\w*\(', '^class [A-Z]\w*', '^__all__']
+  schema_change:
+    paths: ["src/tidyframe/schema/**"]    # serialised schema format users persist
+
+routing:
+  extra_add_if:
+    - name: public-api-smoke
+      when: { signals: [api_surface_change], loc_min: 20 }
+      agents_add: [smoke-tester]          # imports the built wheel in a temp venv

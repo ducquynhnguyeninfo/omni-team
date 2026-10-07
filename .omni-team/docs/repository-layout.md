@@ -1,75 +1,62 @@
-# Repository Layout
+# Repository layout
 
 ```
-omni-team/                          THE baseline automated-agent coding repo
-├── CLAUDE.md                       Root index — thin, links into docs/
-├── README.md                       Consumer-facing intro + quick-start
-├── LICENSE
-├── .gitignore
+.omni-team/                       the whole framework — copy this folder into any project
+├── AGENTS.md                     operating manual for any AI agent (entry point)
+├── CLAUDE.md                     Claude Code entry: imports AGENTS.md + Claude specifics
+├── GEMINI.md                     Gemini CLI entry: imports AGENTS.md + Gemini specifics
+├── README.md                     human quick start
+├── VERSION                       framework version (semver)
+├── requirements.txt              PyYAML — orchestrator only
+├── defaults.yaml                 default signals, routing, engines, limits (framework data)
 │
-├── bootstrap.py                    Render templates + manifest → .claude/agents/
-├── orchestrator.py                 Classify / run / run-gate / status entrypoints
+├── team/                         canonical role definitions (tool-agnostic)
+│   ├── _protocol.md              shared rules: context, scope, severity, verdict, read-only
+│   ├── tech-lead.md  code-reviewer.md  test-engineer.md  data-reviewer.md
+│   └── security-engineer.md  perf-engineer.md  qa-lead.md  smoke-tester.md
 │
-├── lib/                            Pure modules — no side effects at import time
-│   ├── __init__.py
-│   ├── manifest.py                 YAML loader + dotted-key lookup
-│   ├── render.py                   {{key.path}} substitution + missing-key reporter
-│   ├── decision.py                 Decision-matrix evaluator (base + add_if)
-│   ├── state.py                    RunState / GateState + JSON persistence
-│   └── runner.py                   `claude -p` subprocess wrapper + verdict regex
+├── skills/                       workflow entry points (SKILL.md works in Claude Code and Codex)
+│   └── omni-setup/  omni-task/  omni-plan/  omni-review/  omni-ship/
 │
-├── templates/                      Layer 1 (Role) + Layer 2 (Process) — agent prompts
-│   ├── tech-lead.md
-│   ├── dba.md
-│   ├── backend-reviewer.md
-│   ├── frontend-reviewer.md
-│   ├── qa-engineer.md
-│   ├── qa-lead.md
-│   ├── perf-engineer.md
-│   ├── security-engineer.md
-│   └── ui-smoke-engineer.md
+├── project/                      ← the ONLY folder a host project edits
+│   ├── profile.yaml              structured facts (auto by default)
+│   └── conventions.md            rulebook, one section per role
 │
-├── manifests/                      Layer 3 (Project conventions) — data
-│   ├── _starter.yaml               Copy-paste skeleton; schema spec for new projects
-│   └── example.yaml                Reference: fully-populated example manifest
+├── examples/                     sample project/ folders: web-fastapi-nextjs, go-cli, python-library
 │
-├── examples/                       Reference manifests for other stacks
-│   ├── django-postgres.yaml
-│   └── nextjs-prisma.yaml
+├── install.py                    adapters: .claude/, .codex/, .agents/, pointer blocks (stdlib)
+├── orchestrator.py               headless runner: classify / run / run-gate / status / prompt
+├── lib/                          roles, adapters, profile, diffscope, routing, runner, state
+├── tests/                        unittest suite
 │
-├── .claude/                        OUTPUT zone — Claude Code auto-loads from here
-│   └── agents/                     Written by bootstrap.py; do not hand-edit
+├── docs/                         workflow, roles, profile, routing, adapters (users)
+│                                 architecture, critical-rules, definition-of-done,
+│                                 code-quality, repository-layout, when-to-load, maintaining (maintainers)
 │
-└── docs/                           Split sub-guides — linked from CLAUDE.md
-    ├── critical-rules.md
-    ├── repository-layout.md        (this file)
-    ├── architecture.md
-    ├── manifest.md
-    ├── agents.md
-    ├── decision-matrix.md
-    ├── workflow.md
-    ├── code-quality.md
-    ├── definition-of-done.md
-    └── when-to-load.md
+└── runs/                         artifacts per task (created on first use)
 ```
 
-## Why framework files at root, agents under `.claude/`?
+Generated in the **host project root** by `install.py` (build output — edit the sources instead):
 
-`.claude/` is Claude Code's auto-load convention — it watches `.claude/agents/`, `.claude/commands/`, `.claude/settings.json`. The framework (templates, manifests, lib, bootstrap.py, orchestrator.py) is a *tool* that produces `.claude/agents/`; it is not itself auto-loaded. Keeping framework sources at the root makes the split explicit: edit sources at the root, render output lands in `.claude/agents/`.
+```
+.claude/agents/<role>.md   .claude/skills/<skill>/SKILL.md   CLAUDE.md  (pointer block)
+.codex/agents/<role>.toml  .agents/skills/<skill>/SKILL.md   AGENTS.md  (pointer block)
+                                                              GEMINI.md  (pointer block)
+```
 
-For "vendored into an existing project" consumption, copy the framework files under `.omni-team/` (or any non-`.claude/` directory) in the host project, then run `python .omni-team/bootstrap.py …` — output still lands in the host's `.claude/agents/`.
+## What goes where
 
-## What goes where (mental model)
+| Kind of knowledge | Location |
+|---|---|
+| What a role checks and how it reports | `team/<role>.md` |
+| Behaviour shared by all roles | `team/_protocol.md` |
+| How the main agent runs the team | `AGENTS.md`, `skills/` |
+| Facts about one project | `project/profile.yaml` |
+| Rules of one project | `project/conventions.md` |
+| Which gates fire for which diff | `defaults.yaml` → `signals`, `routing` (override in profile) |
+| How to call a tool headless | `defaults.yaml` → `orchestrator.engines` (override in profile) |
+| Native tool formats | `lib/adapters.py` |
 
-- **Generic role behavior** ("a Senior BE Engineer reviews layer discipline") → [`templates/`](../templates/).
-- **Project-specific facts** ("our error contract is `LeanApiError`") → [`manifests/<project>.yaml`](../manifests/).
-- **Routing logic** ("which agents fire for a given diff") → `decision_matrix:` section of the same manifest.
-- **Engine** (load, render, classify, run) → [`lib/`](../lib/).
-- **Entrypoints** (CLI surface) → [`bootstrap.py`](../bootstrap.py), [`orchestrator.py`](../orchestrator.py).
-- **Sample / reference manifests** → [`examples/`](../examples/).
-- **Working on the framework itself** → [`docs/`](.) (this directory).
+## Upgrading a vendored copy
 
-## Files NOT to hand-edit
-
-- `_state.json` — written by `orchestrator.py`; delete with `--fresh` if you need to reset.
-- `.claude/agents/*` — these are *outputs* of `bootstrap.py`. Edit the template + re-render.
+Replace everything except `project/` and `runs/`; re-run `install.py`. Because defaults live in `defaults.yaml` and projects only override, upgrades never require merging your profile.

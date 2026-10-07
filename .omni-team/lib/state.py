@@ -1,8 +1,7 @@
 """
-Orchestrator state file management.
+Orchestrator state file — `<artifacts_dir>/_state.json` per task.
 
-State lives at {artifact_dir}/_state.json. JSON for machine-readable, gentle
-on diffs, and easy to inspect.
+JSON keeps it machine-readable, diff-friendly and easy to inspect.
 """
 
 from __future__ import annotations
@@ -10,24 +9,30 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from typing import List, Optional
+
+# pending | passed | request_changes | block | needs_human | error
+GATE_STATUSES = ("pending", "passed", "request_changes", "block", "needs_human", "error")
 
 
 @dataclass
 class GateState:
     name: str
-    status: str = "pending"        # pending | passed | request_changes | block | error
-    retry_count: int = 0
+    status: str = "pending"
+    attempts: int = 0
+    request_changes_count: int = 0
+    block_count: int = 0
     last_verdict: str = ""
     last_run_at: str = ""
 
 
 @dataclass
 class RunState:
-    mp_id: str
-    phase: str = "classify"        # classify | plan | execute | review | ready_for_human
+    task_id: str
+    phase: str = "review"          # review | ready_for_human | halted
     base_rule: str = ""
-    gates: list[GateState] = field(default_factory=list)
-    halted: bool = False
+    add_rules: List[str] = field(default_factory=list)
+    gates: List[GateState] = field(default_factory=list)
     halt_reason: str = ""
 
     def to_json(self) -> str:
@@ -35,17 +40,21 @@ class RunState:
 
     @classmethod
     def from_path(cls, path: Path) -> "RunState":
-        with path.open("r", encoding="utf-8") as fh:
-            raw = json.load(fh)
+        raw = json.loads(path.read_text(encoding="utf-8"))
         gates = [GateState(**g) for g in raw.pop("gates", [])]
         return cls(gates=gates, **raw)
 
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(self.to_json(), encoding="utf-8")
+        path.write_text(self.to_json() + "\n", encoding="utf-8")
 
-    def gate(self, name: str) -> GateState | None:
-        for g in self.gates:
-            if g.name == name:
-                return g
-        return None
+    def gate(self, name: str) -> Optional[GateState]:
+        return next((g for g in self.gates if g.name == name), None)
+
+    def sync_gates(self, selected: List[str]) -> List[str]:
+        """Add newly-routed gates (a fix may touch new areas); keep history of existing ones."""
+        added = [name for name in selected if self.gate(name) is None]
+        self.gates.extend(GateState(name=n) for n in added)
+        order = {name: i for i, name in enumerate(selected)}
+        self.gates.sort(key=lambda g: order.get(g.name, len(order)))
+        return added

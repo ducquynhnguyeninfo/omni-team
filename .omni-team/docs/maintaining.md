@@ -1,0 +1,50 @@
+# Maintaining omni-team
+
+For agents and humans changing the framework itself (anything under `.omni-team/` except `project/` and `runs/`). Using the team in a project? Read [../AGENTS.md](../AGENTS.md) instead.
+
+## Read first
+
+1. [critical-rules.md](critical-rules.md) — the invariants.
+2. [architecture.md](architecture.md) — layers, modules, state machine.
+3. [definition-of-done.md](definition-of-done.md) — what to run before you finish.
+
+Then the topic guide from [when-to-load.md](when-to-load.md).
+
+## Reviewing framework changes with the team
+
+The defaults exclude `.omni-team/**` from review scope (in host projects it is vendored code). To dog-food the team on the framework itself, pass a profile that narrows the exclusion, e.g. a scratch file outside `.omni-team/`:
+
+```yaml
+# omni-dev-profile.yaml
+orchestrator:
+  exclude_paths: [".omni-team/runs/**"]
+```
+
+```bash
+python3 .omni-team/orchestrator.py classify --task fw-change --profile omni-dev-profile.yaml
+```
+
+## Golden rules in one breath
+
+Roles are stack-agnostic prose; project facts are read at run time from `project/`; routing is YAML; `install.py` is stdlib-only and touches only its own output; verdicts come from the `VERDICT:` line; gates run serially; nothing commits.
+
+## Compatibility notes (v1 → v2)
+
+v2 replaced the render-time manifest with run-time project context.
+
+| v1 | v2 |
+|---|---|
+| `templates/*.md` with `{{placeholders}}` | `team/*.md` (static) + `team/_protocol.md` |
+| `manifests/<project>.yaml` (100+ required keys) | `project/profile.yaml` (all `auto`) + `project/conventions.md` |
+| `examples/*.yaml` | `examples/<name>/{profile.yaml,conventions.md}` |
+| `bootstrap.py` → `.claude/agents` only | `install.py` → Claude, Codex, Gemini, AGENTS.md |
+| `decision_matrix` with `stacks`, `new_route`, `schema_change`, `pii_fields` | `signals` + `routing`; predicates `paths`, `only_paths`, `added_lines`, `keywords`, `components`, `signals`, … |
+| `backend-reviewer` + `frontend-reviewer` | `code-reviewer` (UI checks are conditional) |
+| `dba` | `data-reviewer` (any storage, wire formats) |
+| `qa-engineer` | `test-engineer` |
+| `ui-smoke-engineer` | `smoke-tester` (browser, API, CLI, library) |
+| verdict words anywhere in the last 60 lines | strict last `VERDICT: <TOKEN>` line |
+| `orchestrator.py` → `claude -p` only; diff `base...HEAD` | engines (claude, codex, custom); working tree incl. uncommitted |
+| `--mp`, `--sprint` | `--task` |
+
+Migrating a v1 manifest: move stack facts (paths, commands, URLs) into `components`, and every `*_md` rule block into the matching `conventions.md` section (`backend.layer_rules_md` → *Architecture*, `project_rules.dba.*` → *Data & migrations*, `security.*` → *Security*, `performance.tier_table_md` → *Performance*, …). Port `decision_matrix.add_if` path globs into `signals` or `routing.extra_add_if`.

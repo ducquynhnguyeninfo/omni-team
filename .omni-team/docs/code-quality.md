@@ -1,38 +1,30 @@
-# Code quality limits
+# Code quality (framework Python)
 
-The same limits the reviewer agents enforce on host-project code apply to this repo. The framework's credibility depends on it eating its own dog food.
+The limits the reviewers enforce on host projects apply to this repo too.
 
 | Rule | Limit |
-|------|-------|
+|---|---|
 | Lines per file | 500 |
 | Lines per function | 100 |
-| Function parameters | 8 |
+| Function parameters | 8 (keyword-only beyond that is still a smell) |
 | Nesting depth | 4 |
 
 ## Split strategies
 
-**File too long** → split by responsibility, not by line count.
+- **File too long** → split by responsibility (e.g. move verdict parsing out of `runner.py` into `verdict.py`), not into a `_helpers.py` grab-bag.
+- **Function too long** → extract by *what the chunk decides*. A long straight-line function that reads well can stay; note the exception.
+- **Too many parameters** → a small dataclass, not `**kwargs`.
+- **Nesting too deep** → early returns or extracted helpers.
 
-- [`lib/runner.py`](../lib/runner.py) getting big? Extract the verdict parser into `lib/verdict.py`. Don't dump 200 lines into a `_helpers.py`.
-- A new `lib/` module that only one entrypoint uses can live next to that entrypoint until a second caller appears.
+## Style
 
-**Function too long** → extract by *what the chunk decides*, not by sequence.
+- Comments explain *why*, never restate *what*.
+- No dead code, unused imports or parameters.
+- Type hints on every function used across modules. Keep runtime syntax Python 3.8-compatible (`from __future__ import annotations`, `typing.List` etc. in runtime positions; no `match`, no `X | Y` outside annotations).
+- `install.py` and everything it imports (`lib/roles.py`, `lib/adapters.py`) stay stdlib-only.
+- Errors carry context: name the file, key or role that is wrong and what was expected.
+- No silent fallbacks (see [critical-rules.md](critical-rules.md) §3).
 
-- A 120-line function that does "validate → render → write" → three functions named after their decisions.
-- A 120-line function that's mostly one straight-line algorithm is fine — limits exist to surface buried complexity, not to fragment readable code. If splitting hurts clarity, leave it and note the deliberate exception.
+## Tooling
 
-**Too many parameters** → introduce a small dataclass / TypedDict. Don't reach for `**kwargs`.
-
-**Nesting too deep** → invert the condition (early return) or extract the inner block.
-
-## Style conventions
-
-- **No comments that restate the code.** Reviewer agents flag this; we should too. Comments explain *why*, never *what*.
-- **No dead code.** Remove unused parameters, unused imports, unused helpers. If you're unsure whether something is used, grep it.
-- **Type hints on public surface.** Every function in [`lib/`](../lib/) exposed to `bootstrap.py` / `orchestrator.py` gets parameter and return types. Internal helpers can skip them if obvious.
-- **No silent fallbacks.** A missing manifest key fails loudly; an unrecognised verdict fails loudly. Silent defaults mask bugs — see [critical-rules.md](critical-rules.md) §3, §4.
-- **Errors carry context.** When `bootstrap.py` reports an unresolved placeholder, it names the template file *and* the manifest path it tried. Same for any new failure mode.
-
-## Tools
-
-We don't pin a formatter/linter here yet — keep changes minimal and consistent with surrounding code. If you add one, document the command in [definition-of-done.md](definition-of-done.md).
+No formatter is pinned. Keep changes consistent with surrounding code. If you add a linter, document its command in [definition-of-done.md](definition-of-done.md).

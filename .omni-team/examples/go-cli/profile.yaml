@@ -1,0 +1,44 @@
+# Example: single-binary Go CLI with no UI and no database.
+# Shows how routing collapses to code-reviewer / test-engineer / security-engineer.
+version: 1
+
+project:
+  name: logpipe
+  description: >
+    Command-line tool that tails, filters and ships structured logs to S3 or stdout.
+    Go 1.23, cobra for commands, no database, distributed as a static binary via goreleaser.
+
+work_unit:
+  label: Issue
+  example_id: "#214"
+  spec_root: none            # issues live on GitHub; pass --request or the issue text
+
+components:
+  - name: cli
+    path: .
+    kind: cli
+    stack: "Go 1.23 · cobra · zerolog · aws-sdk-go-v2"
+    commands:
+      lint: "golangci-lint run ./..."
+      test: "go test -race ./..."
+      build: "go build -o bin/logpipe ./cmd/logpipe"
+      run: "./bin/logpipe"
+
+checks:
+  - "golangci-lint run ./..."
+  - "go test -race ./..."
+
+signals:
+  api_surface_change:
+    - added_lines: ['&cobra\.Command\{', '\.Flags\(\)\.(String|Bool|Int|Duration)', 'AddCommand\(']
+    - paths: ["cmd/**"]
+  ui_change:
+    paths: ["internal/render/**"]   # terminal output formatting is this tool's "UI"
+  schema_change:
+    paths: ["internal/format/**", "**/*.proto"]   # on-disk / wire formats consumers parse
+
+routing:
+  extra_add_if:
+    - name: cli-surface-smoke
+      when: { signals: [api_surface_change], loc_min: 30 }
+      agents_add: [smoke-tester]

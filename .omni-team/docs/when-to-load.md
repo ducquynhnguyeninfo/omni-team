@@ -1,38 +1,28 @@
 # When to load which guide
 
-Quick triggers → which file holds the answer. The same table is mirrored (shorter) at the root of [CLAUDE.md](../CLAUDE.md).
+## Using omni-team in a project
 
-## Working on omni-team itself
-
-| Trigger | Read |
+| Situation | Read |
 |---|---|
-| Adding a new agent role | [agents.md](agents.md) §adding-a-new-agent + [manifest.md](manifest.md) §adding-a-new-placeholder |
-| Editing [`templates/*.md`](../templates/) (any agent prompt) | [critical-rules.md](critical-rules.md) §1, §6 + [manifest.md](manifest.md) |
-| Touching [`lib/decision.py`](../lib/decision.py) or matrix predicates | [decision-matrix.md](decision-matrix.md) + [critical-rules.md](critical-rules.md) §2 |
-| Touching [`lib/runner.py`](../lib/runner.py) (verdict parsing) | [architecture.md](architecture.md) §state-machine + [critical-rules.md](critical-rules.md) §4 |
-| Touching [`orchestrator.py`](../orchestrator.py) (CLI / state file) | [architecture.md](architecture.md) §state-machine + [workflow.md](workflow.md) |
-| Touching [`bootstrap.py`](../bootstrap.py) (placeholder substitution) | [manifest.md](manifest.md) §placeholder-syntax + [critical-rules.md](critical-rules.md) §3 |
-| Adding a new manifest section / key | [manifest.md](manifest.md) §adding-a-new-placeholder |
-| Changing the retry budget / state machine | [architecture.md](architecture.md) §state-machine + [workflow.md](workflow.md) §retry-budget |
-| File getting close to 500 lines | [code-quality.md](code-quality.md) §split-strategies |
-| Anything before commit | [definition-of-done.md](definition-of-done.md) |
+| Running a task with the team | [../AGENTS.md](../AGENTS.md) (enough on its own) |
+| First time in a repo | [../README.md](../README.md), then the `omni-setup` skill |
+| Writing `profile.yaml` / `conventions.md` | [profile.md](profile.md) + [../examples/](../examples/) |
+| A gate fires too often / not at all | [routing.md](routing.md) |
+| Detailed flow, artifacts, retry budget, CI | [workflow.md](workflow.md) |
+| What each role owns | [roles.md](roles.md) |
+| Tool specifics (Claude, Codex, Gemini, others), engines | [adapters.md](adapters.md) |
+
+## Changing the framework
+
+| Situation | Read |
+|---|---|
+| Any change | [maintaining.md](maintaining.md) → [critical-rules.md](critical-rules.md) |
+| Editing or adding a role | [roles.md](roles.md) + [critical-rules.md](critical-rules.md) §1, §10 |
+| `lib/routing.py`, signals, predicates | [routing.md](routing.md) + [critical-rules.md](critical-rules.md) §2 |
+| `lib/runner.py`, verdict tokens | [architecture.md](architecture.md) + [critical-rules.md](critical-rules.md) §4 |
+| `install.py`, `lib/adapters.py` | [adapters.md](adapters.md) + [critical-rules.md](critical-rules.md) §8, §9 |
+| `orchestrator.py`, state machine | [architecture.md](architecture.md) + [workflow.md](workflow.md) |
+| Profile keys, conventions sections | [profile.md](profile.md) + [critical-rules.md](critical-rules.md) §10 |
+| File approaching 500 lines | [code-quality.md](code-quality.md) |
 | "Where does X live?" | [repository-layout.md](repository-layout.md) |
-
-## Adopting omni-team in a new project
-
-| Trigger | Read |
-|---|---|
-| First-time onboarding — writing a manifest | [README.md](../README.md) §Quick-start + [manifest.md](manifest.md) + [`examples/`](../examples/) |
-| Choosing which agents to enable | [agents.md](agents.md) |
-| Tuning which agents fire on which diff | [decision-matrix.md](decision-matrix.md) |
-| Tuning per-agent extra rules | [manifest.md](manifest.md) §project_rules + [agents.md](agents.md) |
-| Running the orchestrator locally / in CI | [workflow.md](workflow.md) + [README.md](../README.md) §CI |
-
-## "I just want to fix one thing"
-
-Single-file changes don't need a full read-through. Suggested minimum:
-
-- **Editing a single template** — skim [critical-rules.md](critical-rules.md) §1, §6. Render against example.yaml + one other manifest before declaring done.
-- **Editing a single `lib/` function** — skim [code-quality.md](code-quality.md). Type-check the public surface.
-- **Editing the README** — no extra reads, but confirm links resolve.
-- **Adding an example manifest** — [manifest.md](manifest.md) + copy [`_starter.yaml`](../manifests/_starter.yaml).
+| Before declaring done | [definition-of-done.md](definition-of-done.md) |
