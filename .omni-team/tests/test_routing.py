@@ -4,7 +4,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from lib.routing import RoutingError, Scope, evaluate_signals, glob_match, match_when, select_gates  # noqa: E402
+from lib.routing import (RoutingError, Scope, evaluate_signals, glob_match, match_when,  # noqa: E402
+                         plan_stages, select_gates)
 
 
 def scope(paths=(), added=(), removed=(), components=()):
@@ -103,6 +104,30 @@ class SelectTest(unittest.TestCase):
     def test_deduplicates(self):
         sel = select_gates(TREE, scope(["a.py"], added=["x"]))
         self.assertEqual(sel.gates, ["code-reviewer"])
+
+
+class StagesTest(unittest.TestCase):
+    ROUTING = {"stages": [["a"], ["b", "c", "d"], "e"]}
+
+    def test_groups_selected_gates_and_keeps_layout_order(self):
+        self.assertEqual(plan_stages(self.ROUTING, ["e", "c", "b"]), [["b", "c"], ["e"]])
+
+    def test_unknown_gates_run_alone_at_the_end(self):
+        self.assertEqual(plan_stages(self.ROUTING, ["x", "a", "y"]), [["a"], ["x"], ["y"]])
+
+    def test_legacy_order_is_one_gate_per_stage(self):
+        self.assertEqual(plan_stages({"order": ["b", "a"]}, ["a", "b"]), [["b"], ["a"]])
+
+    def test_stages_and_order_together_fail(self):
+        with self.assertRaises(RoutingError):
+            plan_stages({"stages": [["a"]], "order": ["a"]}, ["a"])
+
+    def test_selection_exposes_stages(self):
+        tree = dict(TREE, routing=dict(TREE["routing"], order=None,
+                                       stages=[["code-reviewer", "security-engineer"], ["qa-lead"]]))
+        sel = select_gates(tree, scope(["a.py"], added=["token"] * 9))
+        self.assertEqual(sel.stages, [["code-reviewer", "security-engineer"], ["qa-lead"]])
+        self.assertEqual(sel.gates, ["code-reviewer", "security-engineer", "qa-lead"])
 
 
 if __name__ == "__main__":

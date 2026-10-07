@@ -18,7 +18,7 @@ Full guide: **[.omni-team/README.md](.omni-team/README.md)** · Agent manual: [.
 
 ```
 request ─► tech-lead ─► implement ─► data · code · test · security · perf ─► qa-lead · smoke ─► HUMAN
-           (plan)       (main agent)     (review gates, serial, routed by the diff)   (accept)    (commit)
+           (plan)       (main agent)     (Gate 0 checks, then routed gates)   (accept)    (commit)
 ```
 
 | Role | Owns |

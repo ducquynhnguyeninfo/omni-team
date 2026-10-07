@@ -49,8 +49,11 @@ Default signals: `docs_only`, `ui_change`, `schema_change`, `api_surface_change`
 
 ```yaml
 routing:
-  order: [tech-lead, data-reviewer, code-reviewer, test-engineer,
-          security-engineer, perf-engineer, qa-lead, smoke-tester]
+  stages:                        # stages run in order; gates inside one stage run concurrently
+    - [tech-lead, pm]
+    - [data-reviewer, code-reviewer, test-engineer, security-engineer, perf-engineer]
+    - [qa-lead]
+    - [smoke-tester]
   base:                          # FIRST match sets the initial gate list
     - name: docs-only
       when: { signals: [docs_only] }
@@ -68,7 +71,11 @@ routing:
       agents_add: [security-engineer]
 ```
 
-Evaluation: compute all signals → first matching `base` rule → unless it is `final`, append `agents_add` of every matching `add_if` rule → de-duplicate → sort by `order` (unknown names go last, in insertion order).
+Evaluation: compute all signals → first matching `base` rule → unless it is `final`, append `agents_add` of every matching `add_if` rule → de-duplicate → group by `stages` (gates missing from the layout run alone at the end, in selection order).
+
+`stages` replaces the older `order:` list (still accepted: one gate per stage). Use one or the other, never both. Put a gate in a later stage only if it must read an earlier gate's report; everything independent belongs in the same stage. Concurrency inside a stage is capped by `orchestrator.max_parallel`.
+
+The same routing decides when an **approval expires**: on re-run, the change since a gate approved is routed on its own, and the gate re-opens if that delta selects it.
 
 Default behaviour in words:
 

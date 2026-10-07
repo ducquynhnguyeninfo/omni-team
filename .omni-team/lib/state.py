@@ -11,7 +11,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import List, Optional
 
-# pending | passed | request_changes | block | needs_human | error
+# pending | passed | request_changes | block | needs_human | error  (see GATE_STATUSES)
 GATE_STATUSES = ("pending", "passed", "request_changes", "block", "needs_human", "error")
 
 
@@ -24,16 +24,19 @@ class GateState:
     block_count: int = 0
     last_verdict: str = ""
     last_run_at: str = ""
+    approved_tree: str = ""        # snapshot the gate approved; a later change can re-open the gate
+    note: str = ""
 
 
 @dataclass
 class RunState:
     task_id: str
-    phase: str = "review"          # review | ready_for_human | halted
+    phase: str = "review"          # checks_failed | review | ready_for_human | halted
     base_rule: str = ""
     add_rules: List[str] = field(default_factory=list)
     gates: List[GateState] = field(default_factory=list)
     halt_reason: str = ""
+    checks_green_tree: str = ""    # last snapshot on which Gate 0 (project checks) passed
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), indent=2, ensure_ascii=False)

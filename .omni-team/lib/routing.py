@@ -36,10 +36,11 @@ class Scope:
 
 @dataclass
 class Selection:
-    gates: List[str]
+    gates: List[str]                 # flattened execution order
     base_rule: str
     add_rules: List[str]
     signals: Dict[str, bool]
+    stages: List[List[str]] = field(default_factory=list)  # gates in one stage may run concurrently
 
 
 def glob_match(path: str, pattern: str) -> bool:
@@ -115,9 +116,25 @@ def evaluate_signals(defs: Dict[str, Any], scope: Scope) -> Dict[str, bool]:
     return results
 
 
-def _ordered(gates: List[str], order: List[str]) -> List[str]:
-    rank = {name: i for i, name in enumerate(order)}
-    return sorted(dict.fromkeys(gates), key=lambda g: (rank.get(g, len(rank)), gates.index(g)))
+def stage_layout(routing: Dict[str, Any]) -> List[List[str]]:
+    """`stages` (list of gate groups) or legacy `order` (one gate per stage) — never both."""
+    if routing.get("stages") and routing.get("order"):
+        raise RoutingError("routing: use either `stages` or `order`, not both")
+    raw = routing.get("stages") or [[g] for g in routing.get("order", [])]
+    return [[s] if isinstance(s, str) else list(s) for s in raw]
+
+
+def plan_stages(routing: Dict[str, Any], gates: List[str]) -> List[List[str]]:
+    """Group selected gates by stage; gates missing from the layout run alone, last, in selection order."""
+    wanted = list(dict.fromkeys(gates))
+    seen: set = set()
+    stages: List[List[str]] = []
+    for layout_stage in stage_layout(routing):
+        picked = [g for g in layout_stage if g in wanted and g not in seen]
+        seen.update(picked)
+        if picked:
+            stages.append(picked)
+    return stages + [[g] for g in wanted if g not in seen]
 
 
 def select_gates(tree: Dict[str, Any], scope: Scope) -> Selection:
@@ -140,4 +157,5 @@ def select_gates(tree: Dict[str, Any], scope: Scope) -> Selection:
                 add_rules.append(rule.get("name", "<unnamed>"))
                 gates.extend(rule.get("agents_add", []))
 
-    return Selection(_ordered(gates, routing.get("order", [])), base_rule, add_rules, signals)
+    stages = plan_stages(routing, gates)
+    return Selection([g for s in stages for g in s], base_rule, add_rules, signals, stages)

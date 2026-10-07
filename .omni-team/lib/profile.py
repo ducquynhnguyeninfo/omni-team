@@ -6,8 +6,8 @@ Merge rules (documented in docs/profile.md):
   - top-level keys in the profile replace the defaults' keys,
   - except `signals` (merged by signal name), `quality_limits` and
     `orchestrator` (merged key by key, `engines` merged by engine name),
-  - and `routing`, where order/base/add_if each replace the default when
-    given and `extra_add_if` is appended to add_if.
+  - and `routing`, where stages|order / base / add_if each replace the default
+    when given and `extra_add_if` is appended to add_if.
 """
 
 from __future__ import annotations
@@ -62,11 +62,14 @@ def _merge_orchestrator(base: Dict[str, Any], over: Dict[str, Any]) -> Dict[str,
 
 def _merge_routing(base: Dict[str, Any], over: Dict[str, Any]) -> Dict[str, Any]:
     merged = dict(base)
-    for key in ("order", "base", "add_if"):
+    if "stages" in over or "order" in over:   # a project layout replaces the default one entirely
+        merged.pop("stages", None)
+        merged.pop("order", None)
+    for key in ("stages", "order", "base", "add_if"):
         if key in over:
             merged[key] = over[key]
     merged["add_if"] = list(merged.get("add_if", [])) + list(over.get("extra_add_if", []))
-    unknown = set(over) - {"order", "base", "add_if", "extra_add_if"}
+    unknown = set(over) - {"stages", "order", "base", "add_if", "extra_add_if"}
     if unknown:
         raise ProfileError(f"routing: unknown key(s) {sorted(unknown)}")
     return merged

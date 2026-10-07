@@ -4,7 +4,7 @@ A **stack-agnostic team of AI sub-agents** for software projects: a project mana
 
 ```
 request ─► tech-lead ─► implement ─► data · code · test · security · perf ─► qa-lead · smoke ─► HUMAN
-           (plan)       (main agent)     (review gates, serial, routed by the diff)   (accept)    (commit)
+           (plan)       (main agent)     (Gate 0 checks, then routed gates)   (accept)    (commit)
 ```
 
 ## Install — copy one folder
@@ -46,7 +46,7 @@ Reports land in `.omni-team/runs/<task-id>/` — one file per role, plus `_summa
 ```bash
 pip install -r .omni-team/requirements.txt         # PyYAML, orchestrator only
 python3 .omni-team/orchestrator.py classify --task T-42            # which gates, no AI calls
-python3 .omni-team/orchestrator.py run --task T-42 --engine codex  # run them, serially
+python3 .omni-team/orchestrator.py run --task T-42 --engine codex  # checks, then stages (parallel inside)
 python3 .omni-team/orchestrator.py status --task T-42
 ```
 
@@ -101,5 +101,7 @@ Replace everything in `.omni-team/` **except** `project/` and `runs/`, then re-r
 ## Guarantees
 
 - Reviewers are read-only; only the implementer edits code.
-- Gates run serially, verdicts are parsed from a strict `VERDICT:` line, retries are budgeted (3 per gate).
+- Gate 0 runs the project's real checks before any AI review; red checks stop the run.
+- Stages run in order, independent gates inside a stage run concurrently; verdicts are parsed from a strict `VERDICT:` line; retries are budgeted (3 per gate).
+- Approvals expire: a gate re-runs when the change since its approval would route it again.
 - Nothing in omni-team commits, pushes or merges. Shipping is a human decision.

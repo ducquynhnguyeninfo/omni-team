@@ -108,11 +108,17 @@ signals:
 #   base:   first matching rule sets the initial gate list (size-driven);
 #           `final: true` on a base rule skips add_if entirely
 #   add_if: every matching rule appends gates (signal-driven)
-#   order:  final execution order; gates run serially in this order
+#   stages: execution layout. Stages run one after another; the gates INSIDE a
+#           stage are independent (none reads another's report) and may run
+#           concurrently (orchestrator.max_parallel). Later stages read the
+#           reports of earlier ones (qa-lead checks earlier findings were fixed).
 # -----------------------------------------------------------------------------
 routing:
-  order: [tech-lead, data-reviewer, code-reviewer, test-engineer, security-engineer,
-          perf-engineer, qa-lead, smoke-tester]
+  stages:
+    - [tech-lead, pm]
+    - [data-reviewer, code-reviewer, test-engineer, security-engineer, perf-engineer]
+    - [qa-lead]
+    - [smoke-tester]
 
   base:
     - name: docs-only
@@ -168,6 +174,12 @@ orchestrator:
   include_uncommitted: true      # review the working tree, not just commits
   exclude_paths: [".omni-team/**"]   # vendored framework + run artifacts are not the project's code
   timeout_s: 1800
+  max_parallel: 3                # gates of one stage run concurrently, at most this many; 1 = serial
+  # Gate 0 — deterministic checks before any AI gate. Commands come from the
+  # profile's `checks` list, or (checks: auto) from the lint/typecheck/test
+  # commands of the touched components. Skipped when the snapshot already passed.
+  run_checks: true
+  checks_timeout_s: 900
   retry_budget:
     block_max: 3
     request_changes_max: 3

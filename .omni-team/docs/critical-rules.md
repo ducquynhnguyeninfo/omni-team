@@ -12,7 +12,7 @@ Rules for **changing the framework** that must never be silently relaxed. When i
 
 5. **Never commit, push, merge or tag** from any script, role or skill. The human gate is the product.
 
-6. **Gates run serially.** Roles read earlier reports from the artifacts folder. Neither the orchestrator nor the skills may run gates in parallel.
+6. **Stages run serially; only gates of one stage may run together.** Later stages read earlier reports from the artifacts folder. A gate may share a stage only with gates whose reports it does not need. Gate 0 (project checks) always precedes the first AI gate, and an approval is void once the change since it would re-route that gate.
 
 7. **Retry budget is numeric.** Default 3 `REQUEST_CHANGES` and 3 `BLOCK` per gate, then halt and log to `_escapes.md`. No "one more try".
 

@@ -53,7 +53,7 @@ The frontmatter is deliberately flat `key: value` so `install.py` can parse it w
 
 1. Create `team/<name>.md` with the frontmatter above. Model it on the closest existing role.
 2. Add it to the ownership table in `team/_protocol.md` and to the roster tables here and in `../AGENTS.md` / `../README.md`.
-3. Add it to `routing.order` in `../defaults.yaml` and to at least one routing rule (or document that it is invoked manually).
+3. Add it to a stage in `routing.stages` in `../defaults.yaml` (same stage as the gates it is independent of) and to at least one routing rule (or document that it is invoked manually).
 4. Add a `conventions.md` section name for it in `../project/conventions.md` and the examples if it reads project rules.
 5. `python3 .omni-team/install.py --dry-run` must list it; run `python3 -m unittest discover -s .omni-team/tests`.
 

@@ -56,22 +56,24 @@ When several people (or a BA/PO) deliver the work, follow with `pm` in **TASKING
 
 ### 3. Implement
 
-Follow the plan phase by phase, mirroring the reference pattern it names. Respect `project/conventions.md`. Run the project's checks — the profile's `checks`, or each touched component's `lint` / `typecheck` / `test` commands, or what the repo's README/CI uses — until they pass. Do not request review on red checks.
+Follow the plan phase by phase, mirroring the reference pattern it names. Respect `project/conventions.md`. Run the project's checks — **Gate 0** — until they pass: `python3 .omni-team/orchestrator.py checks --task <id>` runs the profile's `checks` (or the touched components' `lint` / `typecheck` / `test` commands) and logs to `runs/<id>/_checks.md`. Without Python, run those commands yourself (or what the repo's README/CI uses). Never request review on red checks — the headless `run` refuses to (exit 7).
 
-### 4. Review (gates run serially, never in parallel)
+### 4. Review (stages run in order; gates inside a stage are independent)
 
-1. **Route.** Preferred: `python3 .omni-team/orchestrator.py classify --task <id>` prints the gate list (needs Python 3.8+ and PyYAML). Without it, apply the rules yourself: evaluate each signal in `defaults.yaml` (merged with overrides in `project/profile.yaml`) against the diff, take the **first** matching `routing.base` rule, append every matching `routing.add_if` rule, order by `routing.order`. Say which rules matched.
-2. **Invoke** each gate as a **fresh** sub-agent (see "Invoking a role"). Gates read earlier gates' reports from the artifacts folder, which is why order matters.
+1. **Route.** Preferred: `python3 .omni-team/orchestrator.py classify --task <id>` prints the gate list (needs Python 3.8+ and PyYAML). Without it, apply the rules yourself: evaluate each signal in `defaults.yaml` (merged with overrides in `project/profile.yaml`) against the diff, take the **first** matching `routing.base` rule, append every matching `routing.add_if` rule, group by `routing.stages`. Say which rules matched.
+2. **Invoke** each gate as a **fresh** sub-agent (see "Invoking a role"), **stage by stage**. Gates in the same stage do not read each other's reports, so launch them together (in parallel when your tool allows). A stage starts only after every gate of the previous stage has passed — later stages read earlier reports (e.g. `qa-lead` checks earlier findings were fixed).
 3. **Persist** each report verbatim: append to `runs/<task-id>/<role>.md` under a heading with the timestamp and attempt number.
 4. **React:**
 
 | Verdict | Do |
 |---|---|
 | `APPROVE`, `NOT_APPLICABLE` | next gate |
-| `REQUEST_CHANGES`, `BLOCK` | fix every CRITICAL/WARNING (or P0) finding, re-run checks, re-invoke the **same** gate with "attempt N — verify earlier findings first". After **3** rounds on one gate, stop and escalate to the user with the findings. |
+| `REQUEST_CHANGES`, `BLOCK` | fix every CRITICAL/WARNING (or P0) finding — of all gates in the stage at once — re-run Gate 0, re-invoke the **same** gate(s) with "attempt N — verify earlier findings first". After **3** rounds on one gate, stop and escalate to the user with the findings. |
 | `NEEDS_CLARIFICATION` | stop; ask the user the questions in the report |
 | `BLOCKED` | stop; tell the user what is missing (e.g. "start the dev server with …") |
 | no parseable `VERDICT:` line | re-invoke once asking for the verdict line; if still missing, treat as `BLOCKED` |
+
+**Approvals expire when their area changes.** Before moving on, check whether your fixes since a gate approved would, on their own, route that gate again (e.g. a fix that touches a migration re-routes `data-reviewer`; a >15-line code fix re-routes `code-reviewer`). If so, re-run it. The headless orchestrator does this automatically ("re-opened").
 
 If you disagree with a finding, do not silently skip it: record the rationale in the artifact under "Actions taken by implementer" and let the human decide.
 
@@ -118,12 +120,12 @@ pip install -r .omni-team/requirements.txt
 python3 .omni-team/orchestrator.py run --task <id> [--engine codex] [--spec path] [--request "..."]
 ```
 
-Runs the routed gates serially, keeps `_state.json`, enforces the retry budget and stops at the human gate. Exit codes: 0 ready · 1 paused for fixes · 3/4 budget exhausted · 5 bad verdict · 6 needs a human. Re-run the same command after fixing; passed gates are skipped, newly-routed gates are added.
+Runs Gate 0 (project checks), then the routed gates stage by stage — gates inside a stage concurrently (`orchestrator.max_parallel`, `--serial` to disable) — keeps `_state.json`, enforces the retry budget and stops at the human gate. Exit codes: 0 ready · 1 paused for fixes · 3/4 budget exhausted · 5 bad verdict · 6 needs a human · 7 project checks failed. Re-run the same command after fixing: passed gates are skipped **unless the change since their approval re-routes them**, newly-routed gates are added, and Gate 0 is skipped when the snapshot is unchanged since it last went green.
 
 ## Non-negotiables
 
 1. The team plans and reviews; **only the implementer edits code**.
-2. **Gates run one at a time**, in routing order.
+2. **Gate 0 first; then stage by stage.** Never start a stage before the previous one passed; only gates of the same stage may run together.
 3. **Verdicts come from the `VERDICT:` line**, never from "sounds positive".
 4. **Retry budget is real**: 3 rounds per gate, then a human decides.
 5. **No commit / push / merge** by any agent. Shipping is human.

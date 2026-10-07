@@ -25,7 +25,7 @@ Both work **empty**. Any `auto` value or missing section is inferred by the role
 | `components[].stack` | string | languages/frameworks with major versions |
 | `components[].commands.{setup,lint,typecheck,test,build,run}` | shell | run from the component path; omit what you don't have |
 | `components[].urls.{app,health,…}` | URL | for `smoke-tester` and `perf-engineer` |
-| `checks` | `auto` / list of shell | repo-wide gate the implementer runs before review |
+| `checks` | `auto` / list of shell / `none` | **Gate 0**: list → each command at the repo root; `auto` → `lint`/`typecheck`/`test` of the touched components (all when none touched); `none` → disabled. Must pass before any AI gate |
 
 Optional overrides of [`../defaults.yaml`](../defaults.yaml): `artifacts_dir`, `human_gate`, `quality_limits`, `signals`, `routing`, `orchestrator`.
 
@@ -39,7 +39,7 @@ Optional overrides of [`../defaults.yaml`](../defaults.yaml): `artifacts_dir`, `
 | `signals` | merged by signal name — redefine one signal without copying the others |
 | `quality_limits` | merged key by key |
 | `orchestrator` | merged key by key; `engines` merged by engine name; `retry_budget` merged key by key |
-| `routing.order` / `routing.base` / `routing.add_if` | each replaces the default when present |
+| `routing.stages` (or legacy `order`) / `routing.base` / `routing.add_if` | each replaces the default when present; a project `stages` or `order` replaces the default layout entirely |
 | `routing.extra_add_if` | appended to the (default or replaced) `add_if` list |
 
 Agents reading the profile directly should apply the same rules (they are simple enough to do by eye).

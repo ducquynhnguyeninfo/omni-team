@@ -5,7 +5,7 @@ How a project that vendors omni-team moves one work item from request to ship. T
 ## Phases
 
 ```
-Classify ─► Plan ─► Implement ─► Review ─► Accept ─► Hand off ─► HUMAN GATE
+Classify ─► Plan ─► Implement ─► Gate 0 ─► Review ─► Accept ─► Hand off ─► HUMAN GATE
                          ▲          │         │
                          └─ fix ◄───┴─────────┘   REQUEST_CHANGES / BLOCK (≤ 3 rounds per gate)
 ```
@@ -15,7 +15,8 @@ Classify ─► Plan ─► Implement ─► Review ─► Accept ─► Hand of
 | Classify | main agent (+ `orchestrator.py classify`) | task id, trivial vs non-trivial, gate list |
 | Plan | `tech-lead` (+ `pm` TASKING for team delivery) | `runs/<id>/tech-lead.md` — phases, acceptance criteria, open questions; `runs/<id>/tasks/` — assignable tickets |
 | Implement | main agent or human | code + green project checks |
-| Review | routed gates, serially | `runs/<id>/<role>.md` per gate |
+| Gate 0 | project checks (lint / typecheck / test) | `runs/<id>/_checks.md` |
+| Review | routed gates, stage by stage | `runs/<id>/<role>.md` per gate |
 | Accept | `qa-lead`, then `smoke-tester` | acceptance table, smoke evidence |
 | Hand off | main agent | `runs/<id>/_summary.md`, message to the human |
 | Ship | **human only** | commit, push, merge |
@@ -43,7 +44,9 @@ Trivial (no plan, no gates): ≲15 changed lines, docs-only, formatting, or a pu
 
 ## Review gates
 
-- **Serial, in `routing.order`.** Later gates read earlier reports (e.g. `qa-lead` checks that P0 test gaps were closed). Running them in parallel races on artifacts and produces inconsistent verdicts.
+- **Gate 0 first.** The project's own checks run before any AI gate: `checks` from the profile, or (with `checks: auto`) the `lint` / `typecheck` / `test` commands of the touched components (all components when none is touched). Every check runs (not fail-fast) so all failures surface at once; output tails go to `_checks.md`. Red → stop (exit 7). A snapshot that already went green is not re-checked.
+- **Stages, in `routing.stages` order.** Default: `[tech-lead, pm]` → `[data-reviewer, code-reviewer, test-engineer, security-engineer, perf-engineer]` → `[qa-lead]` → `[smoke-tester]`. Gates inside a stage are independent (none reads another's report) and run concurrently, up to `orchestrator.max_parallel` (default 3; `--serial` or `1` to disable). A stage starts only when the previous one passed, because later stages read earlier reports (`qa-lead` checks that P0 gaps and CRITICAL findings were closed).
+- **Approvals expire.** Every pass records the working-tree snapshot it approved. On the next run, the change *since that approval* is routed on its own; if it would select the gate, the gate is re-opened. A migration fix re-opens `data-reviewer`; a 5-line typo fix re-opens nothing; deltas accumulate from the original approval, so many small edits still add up.
 - **Fresh context per gate.** A sub-agent or separate process, not the implementer's own context — independence is the point. The in-session role-play fallback is allowed but must be flagged in the summary.
 - **Persist verbatim.** Append each report to `runs/<id>/<role>.md` with a timestamp heading. Under the report, add an `### Actions taken by implementer` list: fixed / deferred (with reason) / disputed (with reason).
 
@@ -64,7 +67,8 @@ Hitting the budget means the direction or the scope is wrong — a human decisio
 ├── tech-lead.md          plan (append-only; re-plans append)
 ├── <role>.md             one file per gate, every attempt appended
 ├── smoke/                smoke-tester evidence (screenshots, logs)
-├── _state.json           orchestrator state (gates, attempts, verdicts)
+├── _checks.md           Gate 0 log (command, exit code, output tail on failure)
+├── _state.json           orchestrator state (gates, attempts, verdicts, approved snapshots)
 ├── _summary.md           hand-off summary
 └── _escapes.md           budget exhaustions
 ```
@@ -77,13 +81,14 @@ Per-role files keep each gate's history clean and let a later agent load just th
 
 | Command | Purpose |
 |---|---|
-| `classify --task <id>` | scope + matched rules + gate list; no AI calls |
-| `run --task <id> [--fresh]` | run pending gates; resumes from `_state.json`; adds newly-routed gates |
+| `classify --task <id>` | scope + matched rules + Gate 0 checks + stages; no AI calls |
+| `checks --task <id>` | Gate 0 only |
+| `run --task <id> [--fresh] [--skip-checks] [--serial]` | Gate 0, then pending gates stage by stage; resumes from `_state.json`; adds newly-routed gates; re-opens invalidated approvals |
 | `run-gate <role> --task <id>` | force one gate |
 | `status --task <id>` | print state |
 | `prompt <role> --task <id>` | print the full prompt for a manual/fresh-session run |
 
-Useful flags: `--engine`, `--base <ref>`, `--committed-only`, `--spec <path>`, `--request "<text>"`, `--dry-run`, `--timeout <s>`. Exit codes: 0 ready · 1 paused for fixes · 2 config error · 3 REQUEST_CHANGES budget · 4 BLOCK budget · 5 unparseable verdict · 6 needs a human.
+Useful flags: `--engine`, `--base <ref>`, `--committed-only`, `--spec <path>`, `--request "<text>"`, `--dry-run`, `--timeout <s>`. Exit codes: 0 ready · 1 paused for fixes · 2 config error · 3 REQUEST_CHANGES budget · 4 BLOCK budget · 5 unparseable verdict · 6 needs a human · 7 project checks failed.
 
 CI sketch:
 

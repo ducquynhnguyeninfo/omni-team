@@ -48,3 +48,12 @@ v2 replaced the render-time manifest with run-time project context.
 | `--mp`, `--sprint` | `--task` |
 
 Migrating a v1 manifest: move stack facts (paths, commands, URLs) into `components`, and every `*_md` rule block into the matching `conventions.md` section (`backend.layer_rules_md` → *Architecture*, `project_rules.dba.*` → *Data & migrations*, `security.*` → *Security*, `performance.tier_table_md` → *Performance*, …). Port `decision_matrix.add_if` path globs into `signals` or `routing.extra_add_if`.
+
+## Compatibility notes (v2.0 → v2.1)
+
+| v2.0 | v2.1 |
+|---|---|
+| `routing.order` (strictly serial gates) | `routing.stages` — independent gates share a stage and run concurrently (`orchestrator.max_parallel`). `order` is still accepted as one gate per stage; never set both |
+| checks were an instruction to the implementer | **Gate 0**: `orchestrator.py checks` / `run` execute `checks` (or component `lint`/`typecheck`/`test`) and stop with exit 7 when red |
+| a passed gate stayed passed until `--fresh` | approvals store the working-tree snapshot; the delta since approval is routed and re-opens the gate when it selects it |
+| `_state.json` gates without `approved_tree` | treated as "approval snapshot unknown" → re-opened once on the next run |

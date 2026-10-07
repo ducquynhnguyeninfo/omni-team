@@ -26,7 +26,7 @@
 │
 ├── install.py                    adapters: .claude/, .codex/, .agents/, pointer blocks (stdlib)
 ├── orchestrator.py               headless runner: classify / run / run-gate / status / prompt
-├── lib/                          roles, adapters, profile, diffscope, routing, runner, state
+├── lib/                          roles, adapters, profile, diffscope, routing, checks, pipeline, runner, state
 ├── tests/                        unittest suite
 │
 ├── docs/                         workflow, roles, profile, routing, adapters (users)

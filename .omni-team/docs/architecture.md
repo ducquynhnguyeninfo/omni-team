@@ -37,7 +37,9 @@ Earlier versions rendered Layer 3 into templates through 100+ `{{placeholders}}`
 | `lib/roles.py` | parse role/skill frontmatter, validate, compose role + protocol | stdlib |
 | `lib/adapters.py` | render Claude agent Markdown, Codex TOML, skills; pointer blocks; managed-file marker | stdlib |
 | `lib/profile.py` | load and merge `defaults.yaml` + `project/profile.yaml` | PyYAML |
-| `lib/diffscope.py` | git diff (merge-base → working tree, untracked, excludes) → `Scope` | stdlib + git |
+| `lib/diffscope.py` | working-tree snapshot (tree object via temp index) → `Scope`; deltas between snapshots | stdlib + git |
+| `lib/checks.py` | Gate 0: resolve and run the project's checks, log | stdlib |
+| `lib/pipeline.py` | verdict → state, retry budget, approval re-opening, concurrent stage execution | stdlib |
 | `lib/routing.py` | evaluate predicates and signals, select and order gates | stdlib |
 | `lib/runner.py` | build prompt, run engine argv, parse verdict, append artifact | stdlib |
 | `lib/state.py` | `RunState` / `GateState` JSON persistence | stdlib |
@@ -47,9 +49,12 @@ Earlier versions rendered Layer 3 into templates through 100+ `{{placeholders}}`
 ## State machine (orchestrator)
 
 ```
-classify ─► review ──(all gates passed)──► ready_for_human ─► HUMAN GATE
+classify ─► gate 0 ──red──► checks_failed (exit 7)
+              │ green
+              ▼
+           review: stage 1 → stage 2 (gates ‖) → … ──(all passed)──► ready_for_human ─► HUMAN GATE
               │ ▲
-              │ └── re-run after fixes (passed gates skipped, newly-routed gates added)
+              │ └── re-run after fixes (passed gates skipped unless re-opened by the delta; newly-routed gates added)
               ├── REQUEST_CHANGES / BLOCK within budget ─► paused (exit 1)
               ├── budget exhausted ─► halted (exit 3/4) + _escapes.md
               ├── NEEDS_CLARIFICATION / BLOCKED ─► halted (exit 6)
@@ -61,7 +66,9 @@ Gate statuses: `pending`, `passed`, `request_changes`, `block`, `needs_human`, `
 ## Design decisions
 
 - **Reviewers, not authors.** No "developer" role: the main agent or a human writes code from the findings. This keeps reviewers independent of the work they judge.
-- **Serial gates.** Later gates read earlier reports; parallel runs race on artifacts and on the implementer's fixes.
+- **Staged gates.** Gates that read earlier reports sit in later stages; independent gates share a stage and run concurrently. Per-gate artifact files mean concurrent gates never write to the same file.
+- **Deterministic Gate 0.** Lint/typecheck/test run before any AI gate — cheap, reproducible, and they keep reviewers from spending tokens on code that fails its own tests.
+- **Snapshot-based approvals.** The working tree is captured as a git tree object through a temporary index (real index and files untouched); an approval is tied to that tree and re-opened when the delta since it re-routes the gate.
 - **Strict verdict line.** `VERDICT: <TOKEN>` on the last matching line; anything else is `UNKNOWN` and halts. Inferring "looks approved" from prose defeats the audit trail.
 - **Working-tree scope.** Review happens before commit, so uncommitted and untracked files are in scope by default.
 - **Data-driven routing.** Signals and rules are YAML; Python only evaluates. Stack knowledge lives in signal patterns, which projects can override by name.
