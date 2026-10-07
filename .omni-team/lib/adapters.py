@@ -8,8 +8,9 @@ overwrite or remove) its own output without touching files a human wrote.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 from .roles import Role, Skill, compose_instructions
 
@@ -95,21 +96,32 @@ def pointer_block() -> str:
     return f"{BLOCK_BEGIN}\n{POINTER_BODY}\n{BLOCK_END}\n"
 
 
+# Any omni-team block, whatever wording its begin marker had in older versions.
+_BLOCK_RE = re.compile(r"<!-- omni-team:begin\b.*?-->.*?" + re.escape(BLOCK_END), re.DOTALL)
+
+
+def _without_blocks(text: str) -> Tuple[str, Optional[int]]:
+    """Remove every omni-team block; return the rest and where the first block started."""
+    first = _BLOCK_RE.search(text)
+    return _BLOCK_RE.sub("", text), (first.start() if first else None)
+
+
 def upsert_block(existing: Optional[str], block: str) -> str:
+    """Replace the omni-team block in place (merging duplicates); append one if there is none.
+    Everything outside the block is preserved byte for byte."""
     if not existing:
         return block
-    start, end = existing.find(BLOCK_BEGIN), existing.find(BLOCK_END)
-    if start != -1 and end != -1:
-        return existing[:start] + block.rstrip("\n") + existing[end + len(BLOCK_END):]
-    return existing.rstrip("\n") + "\n\n" + block
+    rest, at = _without_blocks(existing)
+    if at is None:
+        return existing.rstrip("\n") + "\n\n" + block
+    return rest[:at] + block.rstrip("\n") + rest[at:]
 
 
 def remove_block(existing: str) -> str:
-    start, end = existing.find(BLOCK_BEGIN), existing.find(BLOCK_END)
-    if start == -1 or end == -1:
+    rest, at = _without_blocks(existing)
+    if at is None:
         return existing
-    before = existing[:start].rstrip("\n")
-    after = existing[end + len(BLOCK_END):].lstrip("\n")
+    before, after = rest[:at].rstrip("\n"), rest[at:].lstrip("\n")
     return (before + "\n\n" + after).strip("\n") + "\n" if before or after else ""
 
 

@@ -83,6 +83,19 @@ class PointerBlockTest(unittest.TestCase):
         self.assertIn("keep me", twice)
         self.assertEqual(adapters.remove_block(twice), "# Mine\n\nkeep me\n")
 
+    def test_upgrade_replaces_blocks_written_by_older_versions(self):
+        legacy = ("# Mine\n\nkeep me\n\n<!-- omni-team:begin (managed by .omni-team/install.py; edits inside are overwritten) -->\n"
+                  "old body\n<!-- omni-team:end -->\n\n## After\n")
+        once = adapters.upsert_block(legacy, adapters.pointer_block())
+        self.assertEqual(once.count("<!-- omni-team:begin"), 1)
+        self.assertNotIn("old body", once)
+        self.assertTrue(once.startswith("# Mine\n\nkeep me\n\n<!-- omni-team:begin (managed by the omni-team installer"))
+        self.assertTrue(once.rstrip().endswith("## After"))
+        duplicated = legacy + "\n" + adapters.pointer_block()
+        merged = adapters.upsert_block(duplicated, adapters.pointer_block())
+        self.assertEqual(merged.count("<!-- omni-team:begin"), 1, "duplicates from the old bug are merged")
+        self.assertEqual(adapters.remove_block(merged).strip(), "# Mine\n\nkeep me\n\n## After".strip())
+
     def test_remove_from_block_only_file(self):
         self.assertEqual(adapters.remove_block(adapters.pointer_block()), "")
 
