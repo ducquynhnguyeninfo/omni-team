@@ -37,7 +37,7 @@ Earlier versions rendered Layer 3 into templates through 100+ `{{placeholders}}`
 | `lib/roles.py` | parse role/skill frontmatter, validate, compose role + protocol | stdlib |
 | `lib/adapters.py` | render Claude agent Markdown, Codex TOML, skills; pointer blocks; managed-file marker | stdlib |
 | `lib/profile.py` | load and merge `defaults.yaml` + `project/profile.yaml` | PyYAML |
-| `lib/diffscope.py` | working-tree snapshot (tree object via temp index) → `Scope`; deltas between snapshots | stdlib + git |
+| `lib/diffscope.py` | working-tree snapshot (tree object via temp index) → `Scope`; deltas between snapshots; workspaces with nested repositories (per-repo diff, prefixed paths, composite snapshot) | stdlib + git |
 | `lib/checks.py` | Gate 0: resolve and run the project's checks, log | stdlib |
 | `lib/pipeline.py` | verdict → state, retry budget, approval re-opening, concurrent stage execution | stdlib |
 | `lib/routing.py` | evaluate predicates and signals, select and order gates | stdlib |

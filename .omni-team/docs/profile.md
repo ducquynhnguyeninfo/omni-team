@@ -25,6 +25,8 @@ Both work **empty**. Any `auto` value or missing section is inferred by the role
 | `components[].stack` | string | languages/frameworks with major versions |
 | `components[].commands.{setup,lint,typecheck,test,build,run}` | shell | run from the component path; omit what you don't have |
 | `components[].urls.{app,health,…}` | URL | for `smoke-tester` and `perf-engineer` |
+| `components[].base_ref` | git ref | base branch for this component's repository (nested repos; e.g. `origin/develop`) |
+| `components[].repo` | bool | force (`true`) or disable (`false`) nested-repository handling; default: the folder contains `.git` — see [workspace.md](workspace.md) |
 | `checks` | `auto` / list of shell / `none` | **Gate 0**: list → each command at the repo root; `auto` → `lint`/`typecheck`/`test` of the touched components (all when none touched); `none` → disabled. Must pass before any AI gate |
 
 Optional overrides of [`../defaults.yaml`](../defaults.yaml): `artifacts_dir`, `human_gate`, `quality_limits`, `signals`, `routing`, `orchestrator`.

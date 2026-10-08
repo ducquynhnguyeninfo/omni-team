@@ -76,6 +76,19 @@ class SnapshotTest(unittest.TestCase):
         self.assertEqual(info.scope.changed_paths, ["new.py"])
         self.assertEqual(info.scope.added_lines, ["y = 2"])
 
+    def test_same_size_edit_right_after_commit_is_seen(self):
+        # Regression: the snapshot copies the index. A copy with a fresh mtime defeats git's
+        # racy-clean check, so a same-size edit made in the same second as the last index write,
+        # snapshotted a second later, looked unchanged. copy2 keeps the index mtime.
+        import time
+        (self.root / "a.py").write_text("x = 1\n")
+        self.git("add", "a.py")
+        (self.root / "a.py").write_text("y = 2\n")                 # same size, same second as the add
+        time.sleep(1.2)                                             # snapshot happens a second later
+        info = diffscope.compute(self.root, "HEAD", True, [], [])
+        self.assertEqual(info.scope.changed_paths, ["a.py"])
+        self.assertEqual(info.scope.added_lines, ["y = 2"])
+
     def test_snapshot_ignores_excluded_changes_and_delta_is_exact(self):
         excludes = [".omni-team/**"]
         t1 = diffscope.snapshot_tree(self.root, excludes)

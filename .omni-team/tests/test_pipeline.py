@@ -1,6 +1,5 @@
 import sys
 import threading
-import time
 import unittest
 from pathlib import Path
 
@@ -75,21 +74,16 @@ class ReopenTest(unittest.TestCase):
 
 class RunStageTest(unittest.TestCase):
     def test_parallel_runs_concurrently_and_keeps_order(self):
-        active, peak, lock = [0], [0], threading.Lock()
+        # Every worker waits for all the others: this only completes if they truly run at once.
+        barrier = threading.Barrier(3, timeout=10)
 
         def work(gate):
-            with lock:
-                active[0] += 1
-                peak[0] = max(peak[0], active[0])
-            time.sleep(0.05)
-            with lock:
-                active[0] -= 1
+            barrier.wait()
             return gate.name.upper()
 
         gates = [GateState(n) for n in ("a", "b", "c")]
         results = pipeline.run_stage(gates, work, max_parallel=3)
         self.assertEqual([r for _, r in results], ["A", "B", "C"])
-        self.assertGreater(peak[0], 1)
 
     def test_serial_when_max_parallel_is_one(self):
         order = []

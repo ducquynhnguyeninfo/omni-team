@@ -100,6 +100,10 @@ Write `runs/<task-id>/_summary.md`: gates → verdicts, fixes made, deferred ite
 
 Invoke `release-manager` (`/release`): **PREPARE** proposes the version bump, changelog entry, release notes, upgrade notes, deploy and rollback plan and post-deploy checks from everything merged since the last tag; **READINESS** is the go/no-go gate over the gate reports, checks, migrations, versions and docs. Apply version/changelog edits only with the user's consent; tagging, publishing and deploying stay human.
 
+## Workspaces with several repositories
+
+If components are separate git repositories inside this workspace (see [docs/workspace.md](docs/workspace.md)): stay at the workspace root, read each repository's diff with `git -C <component> diff <base>` (the orchestrator prints the exact commands), give gates the per-repository scope, and at hand-off list the repositories to commit — each is committed separately, by the human.
+
 ## Invoking a role
 
 Whatever the tool, the sub-agent must get: (a) the role's instructions, (b) the shared protocol, (c) an **invocation block**:
@@ -154,4 +158,5 @@ Runs Gate 0 (project checks), then the routed gates stage by stage — gates ins
 - [docs/profile.md](docs/profile.md) — `profile.yaml` and `conventions.md` schema, merge rules
 - [docs/routing.md](docs/routing.md) — signals, predicates, routing rules
 - [docs/adapters.md](docs/adapters.md) — what the installer generates per tool; engines
+- [docs/workspace.md](docs/workspace.md) — private workspace + delivered product repos; nested repositories
 - Framework internals and maintenance: the omni-team repository (`README.md`, `docs/maintaining.md`, `examples/`)

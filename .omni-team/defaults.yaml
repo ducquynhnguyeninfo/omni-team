@@ -185,7 +185,8 @@ routing:
 # -----------------------------------------------------------------------------
 orchestrator:
   engine: claude
-  base_ref: auto                 # auto → origin/HEAD, origin/main, origin/master, main, master
+  base_ref: auto                 # auto → first existing ref in base_candidates; a component may set its own base_ref
+  base_candidates: [origin/HEAD, origin/main, origin/master, main, master]
   include_uncommitted: true      # review the working tree, not just commits
   exclude_paths: [".omni-team/**"]   # vendored framework + run artifacts are not the project's code
   timeout_s: 1800

@@ -46,6 +46,14 @@ TASK_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 ICONS = {"passed": "✅", "request_changes": "✋", "block": "⛔", "needs_human": "🙋", "error": "❓"}
 
 
+def generated_paths() -> List[str]:
+    """Adapter files install.py generated (see install.record_generated) — never review scope."""
+    listing = FRAMEWORK_ROOT / ".generated"
+    if not listing.exists():
+        return []
+    return [line.strip() for line in listing.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
 class Context:
     """Everything one invocation needs: merged profile, diff scope, routing, paths."""
 
@@ -58,7 +66,7 @@ class Context:
             raise profile.ProfileError(f"task id '{self.task_id}' may only contain letters, digits, . _ -")
         self.artifacts = PROJECT_ROOT / str(self.tree["artifacts_dir"]).format(task_id=self.task_id)
         self.state_path = self.artifacts / "_state.json"
-        self.excludes: List[str] = list(self.orch.get("exclude_paths", []))
+        self.excludes: List[str] = list(self.orch.get("exclude_paths", [])) + generated_paths()
         self._diff: Optional[diffscope.DiffInfo] = None
         self._selection = None
 
@@ -71,6 +79,7 @@ class Context:
                 bool(self.orch.get("include_uncommitted", True)) and not self.args.committed_only,
                 self.excludes,
                 profile.components(self.tree),
+                list(self.orch.get("base_candidates") or diffscope.DEFAULT_BASE_CANDIDATES),
             )
         return self._diff
 
@@ -109,6 +118,18 @@ def stages_text(stages: List[List[str]]) -> str:
     return " → ".join("[" + " ‖ ".join(s) + "]" for s in stages) or "none — run the project checks only"
 
 
+def repo_lines(d: diffscope.DiffInfo) -> List[str]:
+    """For workspaces with nested repos: where each part of the diff lives and how to see it."""
+    if len(d.repos) < 2:
+        return []
+    lines = ["- Repositories (each nested repo has its own git history — run git inside it):"]
+    for r in d.repos:
+        where = "workspace" if r.key == diffscope.WORKSPACE else r.key
+        cmd = "git diff" if r.key == diffscope.WORKSPACE else f"git -C {r.key} diff"
+        lines.append(f"  - {where}: {r.changed} changed file(s); see `{cmd} {r.point[:12]}` plus untracked files")
+    return lines
+
+
 def scope_summary(ctx: Context) -> str:
     d, sel, wu = ctx.diff, ctx.selection, ctx.tree.get("work_unit", {})
     fired = [name for name, on in sel.signals.items() if on]
@@ -120,6 +141,7 @@ def scope_summary(ctx: Context) -> str:
         f"- Request: {ctx.args.request or '(see spec / tech-lead plan)'}",
         f"- Artifacts directory (earlier gate reports): {ctx.rel(ctx.artifacts)}/",
         f"- Diff: base {d.base_ref}, {d.compared_to}",
+        *repo_lines(d),
         f"- Lines added: {d.scope.loc}; files changed: {len(d.scope.changed_paths)}",
         f"- Components touched: {', '.join(sorted(d.scope.components)) or '(none declared / auto)'}",
         f"- Signals: {', '.join(fired) or '(none)'}",
@@ -153,11 +175,20 @@ def write_summary(ctx: Context, state: RunState) -> None:
         f"- base rule: {state.base_rule}; add rules: {', '.join(state.add_rules) or '(none)'}\n"
         f"- project checks (Gate 0): {'green on ' + state.checks_green_tree[:12] if state.checks_green_tree else 'not green yet'}"
         f" — log: [_checks.md](_checks.md)\n"
-        f"- next step: {ctx.tree.get('human_gate', 'human review')}\n\n"
+        f"- next step: {ctx.tree.get('human_gate', 'human review')}\n"
+        f"{commit_hint(ctx)}\n"
         f"| Gate | Status | Last verdict | Attempts | Note | Report |\n|---|---|---|---|---|---|\n{rows}\n"
     )
     ctx.artifacts.mkdir(parents=True, exist_ok=True)
     (ctx.artifacts / "_summary.md").write_text(body, encoding="utf-8")
+
+
+def commit_hint(ctx: Context) -> str:
+    changed = [r for r in ctx.diff.repos if r.changed]
+    if len(ctx.diff.repos) < 2 or not changed:
+        return ""
+    names = ", ".join(f"`{'workspace' if r.key == diffscope.WORKSPACE else r.key}` ({r.changed} files)" for r in changed)
+    return f"- repositories with changes to commit (each separately): {names}\n"
 
 
 def log_escape(ctx: Context, gate: GateState, reason: str) -> None:

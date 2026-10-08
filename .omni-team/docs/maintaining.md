@@ -99,3 +99,13 @@ Migrating a v1 manifest: move stack facts (paths, commands, URLs) into `componen
 | Protocol scope rule "the diff is where you start, not where you stop" + `CR-19` (code-reviewer), `DR-14` (data-reviewer), `SE-16` (security-engineer): when a change alters an invariant, dependents in unchanged files are searched and reported under **Invariants changed** | new rule ids appended; reports gain one header line. Benchmarked: same recall and cost, the sweep is now visible in 100% of reports (was 0%) |
 | Protocol: the final message must be the complete report; Claude engine runs with `--disallowedTools ReportFindings` | fixes a headless failure where the report was filed through a tool and lost from the artifact |
 | `install.py --dir` accepts a pre-seeded `.omni-team/` holding only `project/` (and `runs/`) — profile written before installing; existing project files are never overwritten | write `project/profile.yaml` + `conventions.md` first, then install |
+
+## Compatibility notes (v2.6 → v2.7)
+
+| Change | Impact |
+|---|---|
+| Components that are nested git repositories (folder contains `.git`, or `repo: true`) are diffed/snapshotted per repository with path prefixes; the workspace repo excludes them (gitlinks too); workspaces need not be git repos themselves | private workspace + delivered product repos now work with classify / run / approvals — see `docs/workspace.md` |
+| `components[].base_ref`, `orchestrator.base_candidates` (data, was hard-coded) | repos branching from `develop` can set their base |
+| **Fix**: snapshots copy the index with its mtime (`shutil.copy2`). Since v2.1 a same-size edit made in the same second as the last index write, snapshotted a second later, could be missed (git's racy-clean check was defeated) — affecting review scope, the Gate 0 green cache and approval re-opening | re-run `classify` on open work after upgrading |
+| `install.py` records the adapter files it manages in `.omni-team/.generated`; the orchestrator keeps them out of review scope (pointer files stay in) | a fresh install no longer floods the first review with generated agents and skills |
+| Composite snapshot `"<repo>:<tree>|…"` in `_state.json` | single-repo projects keep plain tree ids; a workspace's first run after adding a repo re-opens approvals once |

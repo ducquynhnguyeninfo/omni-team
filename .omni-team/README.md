@@ -95,6 +95,10 @@ Samples: [`examples/`](examples/) (FastAPI + Next.js web app, Go CLI, Python lib
 
 Install a subset with `--skills omni-task,omni-review,pm,drawio-skill`; skills not selected are removed from the project if omni-team installed them. Only add skills whose licence allows redistribution — proprietary skills (e.g. Anthropic's document skills) belong in the user's own Claude setup (plugin marketplace), not in this repository.
 
+## Keep AI tooling out of delivered code
+
+Put omni-team in a private **workspace** repository and clone the product repositories inside it as independent repos — the orchestrator diffs each one, the delivered repos stay free of AI files. See [docs/workspace.md](docs/workspace.md).
+
 ## Upgrade
 
 ```bash

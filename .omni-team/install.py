@@ -209,6 +209,21 @@ def _apply(action: Action) -> str:
     return "removed"
 
 
+def record_generated(root: Path, actions: List[Action], uninstall: bool) -> None:
+    """List the files this install manages in <root>/.omni-team/.generated so the orchestrator
+    keeps generated adapters out of review scope. Pointer files stay in scope (they hold user text)."""
+    folder = root / vendor.FOLDER
+    if not folder.is_dir():
+        return
+    target = folder / vendor.GENERATED_LIST
+    if uninstall:
+        if target.exists():
+            target.unlink()
+        return
+    paths = sorted(_display(a.path, root) for a in actions if a.kind in ("write", "copy"))
+    target.write_text("".join(f"{p}\n" for p in paths), encoding="utf-8")
+
+
 def _report(actions: List[Action], root: Path, dry_run: bool) -> None:
     """Apply (unless dry-run) and print; files inside one skill folder are summarised on one line."""
     prefix = "[dry-run] " if dry_run else ""
@@ -330,6 +345,8 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     print(f"omni-team {'uninstall' if args.uninstall else 'install'} → {root}  (tools: {', '.join(tools)})")
     _report(actions, root, args.dry_run)
+    if not args.dry_run:
+        record_generated(root, actions, args.uninstall)
     if args.uninstall and args.dir:
         print(f"\nThe vendored framework stays in {root / vendor.FOLDER}; delete it yourself if you no longer need it.")
     if not args.uninstall and not args.dry_run:

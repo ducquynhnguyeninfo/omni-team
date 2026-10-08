@@ -6,7 +6,8 @@ Routing is **data**: named *signals* detect what a diff touches; *rules* map sig
 
 `orchestrator.py` builds the scope from git:
 
-- base: `--base`, else `orchestrator.base_ref` (`auto` → first of `origin/HEAD`, `origin/main`, `origin/master`, `main`, `master`);
+- base: `--base`, else `orchestrator.base_ref` (`auto` → first existing ref in `orchestrator.base_candidates`, default `origin/HEAD`, `origin/main`, `origin/master`, `main`, `master`); a component's own `base_ref` wins for its repository;
+- components that are **nested git repositories** are diffed inside their repository and their paths prefixed with the component path; the workspace repo is diffed with them excluded ([workspace.md](workspace.md));
 - compared from the merge-base of base and `HEAD` **to the working tree** (staged, unstaged and untracked files included) unless `--committed-only` or `include_uncommitted: false`;
 - `orchestrator.exclude_paths` removed (default: `.omni-team/**` — the vendored framework and its run artifacts are not project code; see the omni-team repository's `docs/maintaining.md` for reviewing the framework itself).
 

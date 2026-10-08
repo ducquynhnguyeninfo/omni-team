@@ -1,0 +1,41 @@
+# Example: private workspace repo + two delivered product repos cloned inside it.
+# The product repos never contain AI tooling; see docs/workspace.md.
+version: 1
+
+project:
+  name: Acme Marketplace (workspace)
+  description: >
+    Team-internal workspace for the Acme marketplace. Product code lives in two delivered
+    repositories cloned below: a Django REST backend and a React Native mobile app.
+
+work_unit:
+  label: Story
+  example_id: ACME-321
+  spec_root: docs/stories/
+
+artifacts_dir: .omni-team/runs/{task_id}
+human_gate: "Human review → commit + push in each changed repository"
+
+components:
+  - name: backend
+    path: backend                    # own git repo, ignored by the workspace
+    kind: backend
+    base_ref: origin/develop
+    stack: "Python 3.12 · Django 5 · DRF · PostgreSQL 16 · Celery"
+    commands:
+      lint: "ruff check . && ruff format --check ."
+      test: "pytest -q"
+      run: "python manage.py runserver 8000"
+    urls: { app: "http://localhost:8000", health: "http://localhost:8000/healthz" }
+
+  - name: mobile
+    path: mobile                     # own git repo, ignored by the workspace
+    kind: mobile
+    base_ref: origin/main
+    stack: "TypeScript · React Native 0.76 · Expo · TanStack Query · i18next"
+    commands:
+      typecheck: "npx tsc --noEmit"
+      lint: "npx eslint ."
+      test: "npx jest --ci"
+
+checks: auto

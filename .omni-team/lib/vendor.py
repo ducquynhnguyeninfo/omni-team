@@ -30,6 +30,7 @@ from typing import List, Optional, Sequence, Tuple
 
 FOLDER = ".omni-team"
 MANIFEST = ".vendor.json"
+GENERATED_LIST = ".generated"                 # written by install.py: adapter files it manages
 HOST_OWNED = ("project", "runs")              # preserved on upgrade
 EXCLUDED_NAMES = {"__pycache__", ".DS_Store", ".pytest_cache"}
 EXCLUDED_SUFFIXES = (".pyc", ".pyo")
@@ -44,6 +45,7 @@ RUNTIME_SET: Tuple[str, ...] = (
     "lib/roles.py", "lib/routing.py", "lib/runner.py", "lib/state.py",
     "team/",
     "docs/workflow.md", "docs/roles.md", "docs/profile.md", "docs/routing.md", "docs/adapters.md",
+    "docs/workspace.md",
 )
 SKILLS_ENTRY = "skills/"
 PROJECT_TEMPLATE = "project/"
@@ -95,7 +97,7 @@ def framework_files(root: Path, skip_top: Sequence[str] = ()) -> List[Path]:
     files = []
     for path in sorted(root.rglob("*")):
         rel = path.relative_to(root)
-        if rel.parts[0] in skip_top or str(rel) == MANIFEST or any(p in EXCLUDED_NAMES for p in rel.parts):
+        if rel.parts[0] in skip_top or str(rel) in (MANIFEST, GENERATED_LIST) or any(p in EXCLUDED_NAMES for p in rel.parts):
             continue
         if path.is_file() and not path.name.endswith(EXCLUDED_SUFFIXES):
             files.append(rel)

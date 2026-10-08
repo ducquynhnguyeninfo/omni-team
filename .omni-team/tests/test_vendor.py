@@ -172,6 +172,9 @@ class InstallDirTest(TempProject):
         self.assertTrue((self.project / ".claude" / "skills" / "omni-task" / "SKILL.md").exists())
         self.assertTrue((self.project / ".codex" / "agents" / "ba.toml").exists())
         self.assertIn("omni-team:begin", (self.project / "AGENTS.md").read_text())
+        generated = (self.target / vendor.GENERATED_LIST).read_text().splitlines()
+        self.assertIn(".claude/agents/code-reviewer.md", generated)
+        self.assertNotIn("AGENTS.md", generated, "pointer files hold user text and stay in review scope")
         self.assertEqual(quiet(install.main, ["upgrade", "--dir", str(self.project)]), 0)
 
     def test_tools_without_native_skills_get_skills_vendored(self):
@@ -199,6 +202,7 @@ class InstallDirTest(TempProject):
         self.assertEqual(quiet(install.main, ["uninstall", "--dir", str(self.project)]), 0)
         self.assertFalse((self.project / ".claude" / "agents" / "code-reviewer.md").exists())
         self.assertTrue((self.target / "orchestrator.py").exists())
+        self.assertFalse((self.target / vendor.GENERATED_LIST).exists())
 
     @unittest.skipIf(yaml is None or shutil.which("git") is None, "needs PyYAML and git")
     def test_slim_copy_orchestrator_runs(self):
@@ -209,6 +213,8 @@ class InstallDirTest(TempProject):
                               cwd=self.project, capture_output=True, text=True)
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
         self.assertIn("code-reviewer", done.stdout)
+        self.assertNotIn(".claude/agents/", done.stdout, "generated adapters are not review scope")
+        self.assertIn("app.py", done.stdout)
 
 
 if __name__ == "__main__":
