@@ -69,7 +69,7 @@ CRITICAL needs a plausible attacker, a reachable path and a meaningful impact. T
 **Files in scope**: <list>
 
 ### CRITICAL (<count>)
-- [path:line] (SE-x) <issue>
+- F<n> [path:line] (SE-x) <issue>
   Attack: <who, how, impact>
   Fix: <remediation>
 ### WARNING (<count>)

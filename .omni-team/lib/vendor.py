@@ -41,7 +41,7 @@ MARKER_FILE = Path("team") / "_protocol.md"   # proves a folder is an omni-team 
 RUNTIME_SET: Tuple[str, ...] = (
     ".gitignore", "AGENTS.md", "CLAUDE.md", "GEMINI.md", "VERSION", "requirements.txt",
     "defaults.yaml", "orchestrator.py",
-    "lib/__init__.py", "lib/checks.py", "lib/diffscope.py", "lib/pipeline.py", "lib/profile.py",
+    "lib/__init__.py", "lib/artifacts.py", "lib/checks.py", "lib/diffscope.py", "lib/pipeline.py", "lib/profile.py",
     "lib/roles.py", "lib/routing.py", "lib/runner.py", "lib/state.py",
     "team/",
     "docs/workflow.md", "docs/roles.md", "docs/profile.md", "docs/routing.md", "docs/adapters.md",

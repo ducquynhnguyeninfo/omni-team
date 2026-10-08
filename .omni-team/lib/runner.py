@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from . import artifacts
 from .roles import Role, compose_instructions
 
 VERDICTS = (
@@ -110,18 +111,6 @@ def _execute(argv: List[str], stdin: Optional[str], cwd: Path, timeout_s: int) -
     return output + f"VERDICT: {verdict} — restated from the report; engine exited non-zero\n"
 
 
-def _append_artifact(path: Path, role: str, verdict: str, started: dt.datetime,
-                     duration_s: float, engine_name: str, output: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    header = (
-        f"\n\n---\n\n## Invocation {started.isoformat(timespec='seconds')}\n"
-        f"- role: `{role}`\n- engine: `{engine_name}`\n"
-        f"- verdict: **{verdict}**\n- duration: {duration_s:.1f}s\n\n### Output\n\n"
-    )
-    with path.open("a", encoding="utf-8") as fh:
-        fh.write(header + output.rstrip() + "\n")
-
-
 def run_gate(
     *,
     role: Role,
@@ -133,6 +122,7 @@ def run_gate(
     artifact_path: Path,
     timeout_s: int,
     dry_run: bool = False,
+    max_kb: int = 0,
 ) -> GateResult:
     prompt = build_prompt(role, protocol, invocation)
     started = dt.datetime.now()
@@ -148,5 +138,6 @@ def run_gate(
         output = _execute(argv, stdin, project_root, timeout_s)
     duration_s = (dt.datetime.now() - started).total_seconds()
     verdict = parse_verdict(output)
-    _append_artifact(artifact_path, role.name, verdict, started, duration_s, engine_name, output)
+    artifacts.append(artifact_path, artifacts.format_entry(role.name, verdict, started, duration_s, engine_name, output),
+                     max_kb)
     return GateResult(role.name, verdict, output, duration_s, artifact_path)

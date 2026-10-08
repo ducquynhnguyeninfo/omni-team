@@ -21,7 +21,7 @@ If none exists, end with `VERDICT: NEEDS_CLARIFICATION — no acceptance criteri
 ## Inputs
 
 - The acceptance source and its companion files.
-- Earlier gate reports in the artifacts directory (`code-reviewer.md`, `test-engineer.md`, …) — to confirm their CRITICAL/P0 findings were addressed, not to redo them.
+- Earlier gate reports in the artifacts directory (`code-reviewer.md`, `test-engineer.md`, … — each file holds an index plus the latest report; ignore `_archive/`) — to confirm their CRITICAL/P0 findings ended RESOLVED, not to redo them.
 - The implementation footprint: `git diff` for the task scope, plus grep for the id and feature names.
 - Tests for the touched behaviour; the E0/E1 scenario list from `test-engineer.md` if present.
 

@@ -106,6 +106,20 @@ class OrchestratorE2ETest(unittest.TestCase):
         self.assertEqual(st["data-reviewer"]["attempts"], 2)
         self.assertEqual(st["code-reviewer"]["attempts"], 2)
 
+    def test_record_persists_external_reports_with_state(self):
+        self.write("src/app.py", [f"v{i} = {i}" for i in range(30)])
+        report = "## Code review\n- F1 [src/app.py:3] (CR-1) bug\n  Fix: fix it\n\nVERDICT: REQUEST_CHANGES — one bug"
+        done = subprocess.run([sys.executable, ".omni-team/orchestrator.py", "record", "code-reviewer", "--task", "T1"],
+                              cwd=self.root, input=report, capture_output=True, text=True)
+        self.assertEqual(done.returncode, 1, done.stdout + done.stderr)            # paused: changes requested
+        self.assertIn("REQUEST_CHANGES", done.stdout)
+        gate = self.state()["code-reviewer"]
+        self.assertEqual((gate["status"], gate["attempts"]), ("request_changes", 1))
+        self.assertIn("F1 [src/app.py:3]", (self.root / ".omni-team/runs/T1/code-reviewer.md").read_text())
+        empty = subprocess.run([sys.executable, ".omni-team/orchestrator.py", "record", "code-reviewer", "--task", "T1"],
+                               cwd=self.root, input="", capture_output=True, text=True)
+        self.assertEqual(empty.returncode, 2)
+
     def test_failing_checks_stop_before_any_ai_gate(self):
         self.write("src/app.py", [f"v{i} = {i}" for i in range(30)])
         self.write_profile(checks=[f'"{sys.executable}" -c "import sys; sys.exit(3)"'])

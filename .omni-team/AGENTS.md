@@ -47,7 +47,7 @@ Having `.omni-team/` in the repo is enough to start: every `auto` value is infer
 
 ### 1. Classify
 
-- Choose a **task id**: the ticket id, or a short slug (`fix-login-redirect`). Artifacts go to `runs/<task-id>/` (the profile's `artifacts_dir`).
+- Choose a **task id** per work item: the ticket / spec id, or a short slug of the request (`fix-login-redirect`). Not the branch name — one long-lived branch often carries several work items. Artifacts go to `runs/<task-id>/` (the profile's `artifacts_dir`).
 - **Trivial** — ≲15 changed lines, docs-only, or a rename with no behaviour change, and no security/data area touched: implement, run checks, report. No gates.
 - Otherwise continue.
 
@@ -73,7 +73,7 @@ Follow the plan phase by phase, mirroring the reference pattern it names. Respec
 
 1. **Route.** Preferred: `python3 .omni-team/orchestrator.py classify --task <id>` prints the gate list (needs Python 3.8+ and PyYAML). Without it, apply the rules yourself: evaluate each signal in `defaults.yaml` (merged with overrides in `project/profile.yaml`) against the diff, take the **first** matching `routing.base` rule, append every matching `routing.add_if` rule, group by `routing.stages`. Say which rules matched.
 2. **Invoke** each gate as a **fresh** sub-agent (see "Invoking a role"), **stage by stage**. Gates in the same stage do not read each other's reports, so launch them together (in parallel when your tool allows). A stage starts only after every gate of the previous stage has passed — later stages read earlier reports (e.g. `qa-lead` checks earlier findings were fixed).
-3. **Persist** each report verbatim: append to `runs/<task-id>/<role>.md` under a heading with the timestamp and attempt number.
+3. **Persist** each report verbatim: `python3 .omni-team/orchestrator.py record <role> --task <id> < report.md` — it appends with a timestamp heading, rotates the file into `_archive/` beyond `orchestrator.artifact_max_kb` (index + latest report stay) and records the verdict in `_state.json`. Without Python: append by hand; when the file passes ~40 KB, move the older reports to `runs/<task-id>/_archive/<role>.md` and keep a one-line-per-report index plus the latest report.
 4. **React:**
 
 | Verdict | Do |

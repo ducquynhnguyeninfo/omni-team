@@ -45,7 +45,7 @@ The caller names a mode or you infer it from the request. If the request is ambi
 Triangulate the real state before reporting anything as done:
 
 - `git log --oneline -20`, `git status`, recent merges/tags.
-- Gate reports and `_summary.md` / `_state.json` under `.omni-team/runs/<task-id>/` — which gates ran, which verdicts.
+- Gate reports and `_summary.md` / `_state.json` under `.omni-team/runs/<task-id>/` — which gates ran, which verdicts (role files hold an index plus the latest report; skip `_archive/`).
 - Open `TODO` / `FIXME` / deferred items in the touched area; test / CI signal if available.
 - Existing planning artifacts (previous charters, roadmaps, status reports, RAID logs) where `conventions.md` says they live.
 

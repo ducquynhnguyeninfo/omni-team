@@ -8,6 +8,7 @@ orchestrator.py — headless runner for the omni-team review gates.
     python3 .omni-team/orchestrator.py run-gate code-reviewer --task T-1
     python3 .omni-team/orchestrator.py status   --task T-1
     python3 .omni-team/orchestrator.py prompt   code-reviewer --task T-1   # print the full prompt
+    python3 .omni-team/orchestrator.py record   code-reviewer --task T-1 < report.md   # persist a sub-agent's report
 
 Common flags: --engine claude|codex|<custom>, --base <ref>, --committed-only,
 --spec <path>, --request "<text>", --profile <path>, --dry-run.
@@ -35,11 +36,11 @@ FRAMEWORK_ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = FRAMEWORK_ROOT.parent
 sys.path.insert(0, str(FRAMEWORK_ROOT))
 
-from lib import checks, diffscope, pipeline, profile  # noqa: E402
+from lib import artifacts, checks, diffscope, pipeline, profile  # noqa: E402
 from lib.pipeline import EXIT_CHECKS, EXIT_CONFIG, EXIT_PAUSED, EXIT_READY  # noqa: E402
 from lib.roles import RoleError, load_protocol, role_by_name  # noqa: E402
 from lib.routing import RoutingError, plan_stages, select_gates  # noqa: E402
-from lib.runner import EngineError, build_prompt, run_gate  # noqa: E402
+from lib.runner import EngineError, build_prompt, parse_verdict, run_gate  # noqa: E402
 from lib.state import GateState, RunState  # noqa: E402
 
 TASK_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -157,9 +158,10 @@ def invocation_text(ctx: Context, gate: GateState) -> str:
     if gate.attempts:
         text += (
             f"\n\nThis is attempt {gate.attempts + 1}. Your previous verdict was {gate.last_verdict}"
-            f"{' (' + gate.note + ')' if gate.note else ''}; previous reports are in "
-            f"{ctx.rel(ctx.artifacts / (gate.name + '.md'))}. "
-            f"Verify each earlier finding was addressed before looking for new ones."
+            f"{' (' + gate.note + ')' if gate.note else ''}. Your earlier reports: "
+            f"{ctx.rel(ctx.artifacts / (gate.name + '.md'))} (index + latest report; the `_archive/` folder only "
+            f"if you must check one specific old finding). Start with the *Earlier findings* table "
+            f"(F-id → RESOLVED / OPEN / DISPUTED + evidence), then look for new issues; keep numbering F-ids."
         )
     return text
 
@@ -243,6 +245,7 @@ def _execute_gate(ctx: Context, gate: GateState):
         artifact_path=ctx.artifacts / f"{gate.name}.md",
         timeout_s=int(ctx.args.timeout or ctx.orch.get("timeout_s", 1800)),
         dry_run=ctx.args.dry_run,
+        max_kb=int(ctx.orch.get("artifact_max_kb", 40)),
     )
 
 
@@ -363,6 +366,30 @@ def cmd_status(ctx: Context) -> int:
     return EXIT_READY if state.phase == "ready_for_human" else EXIT_PAUSED
 
 
+def cmd_record(ctx: Context) -> int:
+    """Persist a report produced outside the orchestrator (e.g. a native sub-agent) with rotation + state."""
+    source = Path(ctx.args.file) if ctx.args.file else None
+    report = source.read_text(encoding="utf-8") if source else sys.stdin.read()
+    if not report.strip():
+        raise EngineError("empty report: pass --file <path> or pipe the report on stdin")
+    role = role_by_name(ctx.args.role)
+    verdict = parse_verdict(report)
+    path = ctx.artifacts / f"{role.name}.md"
+    rotated = artifacts.append(path, artifacts.format_entry(role.name, verdict, dt.datetime.now(), 0.0,
+                                                            ctx.args.engine or "manual", report),
+                               int(ctx.orch.get("artifact_max_kb", 40)))
+    state = ctx.load_state()
+    gate = state.gate(role.name) or GateState(name=role.name)
+    if state.gate(gate.name) is None:
+        state.gates.append(gate)
+    code, escape = pipeline.record(state, gate, verdict, ctx.diff.tree, ctx.budget())
+    if escape:
+        log_escape(ctx, gate, escape)
+    state.save(ctx.state_path)
+    print(f"{role.name}: {verdict} → {ctx.rel(path)}" + ("  (older reports rotated into _archive/)" if rotated else ""))
+    return EXIT_READY if code is None else code
+
+
 def cmd_prompt(ctx: Context) -> int:
     role = role_by_name(ctx.args.role)
     print(build_prompt(role, load_protocol(), invocation_text(ctx, GateState(name=role.name))))
@@ -397,17 +424,20 @@ def build_parser() -> argparse.ArgumentParser:
             p.add_argument("--fresh", action="store_true", help="discard existing state and start over")
             p.add_argument("--skip-checks", action="store_true", help="skip Gate 0 (project checks)")
             p.add_argument("--serial", action="store_true", help="one gate at a time, even inside a stage")
-    for name, helptext in (("run-gate", "run one named gate"), ("prompt", "print a role's full prompt")):
+    for name, helptext in (("run-gate", "run one named gate"), ("prompt", "print a role's full prompt"),
+                           ("record", "persist a report produced elsewhere (stdin or --file)")):
         p = sub.add_parser(name, help=helptext)
         p.add_argument("role")
         common(p)
+        if name == "record":
+            p.add_argument("--file", help="report file (default: read stdin)")
     return parser
 
 
 def main(argv: Optional[list] = None) -> int:
     args = build_parser().parse_args(argv)
     dispatch = {"classify": cmd_classify, "checks": cmd_checks, "run": cmd_run, "run-gate": cmd_run_gate,
-                "status": cmd_status, "prompt": cmd_prompt}
+                "status": cmd_status, "prompt": cmd_prompt, "record": cmd_record}
     try:
         return dispatch[args.cmd](Context(args))
     except (profile.ProfileError, RoutingError, RoleError, EngineError, diffscope.GitError,

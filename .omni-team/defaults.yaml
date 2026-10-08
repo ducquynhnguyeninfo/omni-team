@@ -190,6 +190,7 @@ orchestrator:
   include_uncommitted: true      # review the working tree, not just commits
   exclude_paths: [".omni-team/**"]   # vendored framework + run artifacts are not the project's code
   timeout_s: 1800
+  artifact_max_kb: 40            # rotate runs/<task>/<role>.md beyond this size (0 = never); see docs/workflow.md
   max_parallel: 3                # gates of one stage run concurrently, at most this many; 1 = serial
   # Gate 0 — deterministic checks before any AI gate. Commands come from the
   # profile's `checks` list, or (checks: auto) from the lint/typecheck/test

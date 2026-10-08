@@ -68,6 +68,7 @@ class RuntimeSetTest(unittest.TestCase):
             used = set(re.findall(r"from lib(?:\.(\w+))? import ([\w, ]+)", text))
             names = {m for m, _ in used if m} | {n.strip() for m, ns in used if not m for n in ns.split(",")}
             names |= set(re.findall(r"from \.(\w+) import", text))
+            names |= {n.strip() for group in re.findall(r"from \. import ([\w, ]+)", text) for n in group.split(",")}
             self.assertTrue(names <= shipped, f"{module} imports {names - shipped}, not in RUNTIME_SET")
 
 

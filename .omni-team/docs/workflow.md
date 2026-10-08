@@ -35,7 +35,7 @@ Its status reports read gate verdicts in `runs/` as evidence, so the review pipe
 
 ## Choosing a task id
 
-Use the ticket/spec id when there is one (`PROJ-123`, `MP-04A`); otherwise a short kebab-case slug of the request. Allowed characters: letters, digits, `.`, `_`, `-`. The id names the artifacts folder and is how `qa-lead` finds the spec under `work_unit.spec_root`.
+Use the ticket/spec id when there is one (`PROJ-123`, `MP-04A`); otherwise a short kebab-case slug of the request. Allowed characters: letters, digits, `.`, `_`, `-`. The id names the artifacts folder and is how `qa-lead` finds the spec under `work_unit.spec_root`. One id per work item — not per branch: a long-lived branch that carries several items would pile their histories into one folder.
 
 ## Trivial vs non-trivial
 
@@ -68,7 +68,8 @@ Hitting the budget means the direction or the scope is wrong — a human decisio
 ```
 .omni-team/runs/<task-id>/
 ├── tech-lead.md          plan (append-only; re-plans append)
-├── <role>.md             one file per gate, every attempt appended
+├── <role>.md             one file per gate: index of older reports + reports since the last rotation
+├── _archive/<role>.md    full text of rotated reports (append-only)
 ├── smoke/                smoke-tester evidence (screenshots, logs)
 ├── _checks.md           Gate 0 log (command, exit code, output tail on failure)
 ├── _state.json           orchestrator state (gates, attempts, verdicts, approved snapshots)
@@ -77,6 +78,14 @@ Hitting the budget means the direction or the scope is wrong — a human decisio
 ```
 
 Per-role files keep each gate's history clean and let a later agent load just the report it needs. The folder location is `artifacts_dir` in the profile. Commit it for an audit trail, or add `.omni-team/runs/` to `.gitignore`.
+
+**Rotation.** Role files are read on every re-review and by `qa-lead` / `pm`, so they are size-capped: once a file would exceed `orchestrator.artifact_max_kb` (default 40, `0` disables), its older reports move verbatim to `_archive/<role>.md` and the hot file keeps an index (when, verdict, one-line summary per older report) plus the newest report. Nothing is deleted. Re-reviews start with an *Earlier findings* table (stable `F1, F2 …` ids → RESOLVED / OPEN / DISPUTED) and repeat full text only for open and new findings, which keeps each report short. Readers never load `_archive/` unless they must check one specific old finding. Reports produced outside the orchestrator go through the same path: `orchestrator.py record <role> --task <id> < report.md`.
+
+If you commit the runs folder, mark archives as generated so pull-request diffs collapse them:
+
+```gitattributes
+.omni-team/runs/**/_archive/** linguist-generated=true
+```
 
 ## Orchestrator (headless)
 
@@ -90,6 +99,7 @@ Per-role files keep each gate's history clean and let a later agent load just th
 | `run-gate <role> --task <id>` | force one gate |
 | `status --task <id>` | print state |
 | `prompt <role> --task <id>` | print the full prompt for a manual/fresh-session run |
+| `record <role> --task <id> [--file f]` | persist a report produced elsewhere (stdin or file): rotation + verdict into `_state.json` |
 
 Useful flags: `--engine`, `--base <ref>`, `--committed-only`, `--spec <path>`, `--request "<text>"`, `--dry-run`, `--timeout <s>`. Exit codes: 0 ready · 1 paused for fixes · 2 config error · 3 REQUEST_CHANGES budget · 4 BLOCK budget · 5 unparseable verdict · 6 needs a human · 7 project checks failed.
 

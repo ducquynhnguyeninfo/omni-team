@@ -109,3 +109,12 @@ Migrating a v1 manifest: move stack facts (paths, commands, URLs) into `componen
 | **Fix**: snapshots copy the index with its mtime (`shutil.copy2`). Since v2.1 a same-size edit made in the same second as the last index write, snapshotted a second later, could be missed (git's racy-clean check was defeated) — affecting review scope, the Gate 0 green cache and approval re-opening | re-run `classify` on open work after upgrading |
 | `install.py` records the adapter files it manages in `.omni-team/.generated`; the orchestrator keeps them out of review scope (pointer files stay in) | a fresh install no longer floods the first review with generated agents and skills |
 | Composite snapshot `"<repo>:<tree>|…"` in `_state.json` | single-repo projects keep plain tree ids; a workspace's first run after adding a repo re-opens approvals once |
+
+## Compatibility notes (v2.7 → v2.8)
+
+| Change | Impact |
+|---|---|
+| Role report files rotate beyond `orchestrator.artifact_max_kb` (default 40 KB): older reports → `_archive/<role>.md`, hot file = index + newest report (`lib/artifacts.py`) | existing files are parsed as-is and rotated on their next write; nothing is deleted |
+| Findings carry stable ids `F1, F2 …`; re-reviews open with an *Earlier findings* table and repeat only open/new findings | shorter re-review reports; role templates show `- F<n> [path:line] (RULE-ID)` |
+| `orchestrator.py record <role> --task <id>` persists externally produced reports (native sub-agents) through the same rotation and state | the manual flow no longer appends unbounded files |
+| Task id guidance: one per work item, not per branch | — |

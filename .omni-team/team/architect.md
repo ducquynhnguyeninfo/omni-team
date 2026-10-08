@@ -90,7 +90,7 @@ Every rule in `conventions.md` → `Architecture` with its stated severity.
 **Structural changes detected**: <components / dependencies / contracts / infra / data flows>
 **ADRs consulted**: <paths or "none found">
 ### CRITICAL (<count>)
-- [path:line] (AR-x) ...
+- F<n> [path:line] (AR-x) ...
   Fix: ... (or: "record an ADR deciding …")
 ### WARNING (<count>)
 ### INFO
