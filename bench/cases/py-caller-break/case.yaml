@@ -1,0 +1,10 @@
+id: py-caller-break
+language: python
+request: "Tax now depends on the customer's region: price_with_tax(amount, region) with a per-region rate table; update checkout."
+defects:
+  - id: D1
+    file: app/invoice.py
+    lines: [9, 9]
+    severity: critical
+    summary: "Unchanged caller invoice_line still passes a numeric rate as the 2nd argument; it is now treated as a region key (KeyError)."
+    keywords: ["invoice", "invoice_line", "caller", "KeyError", "rate"]

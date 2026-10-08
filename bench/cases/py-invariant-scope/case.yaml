@@ -1,0 +1,16 @@
+id: py-invariant-scope
+language: python
+request: "Let suppliers create their own custom roles; role names become unique per scope instead of globally."
+defects:
+  - id: D1
+    file: app/roles.py
+    lines: [1, 6]
+    severity: critical
+    summary: "Unchanged role_id_by_name looks a role up by bare name; with per-scope names it can return a supplier's custom role (e.g. one named 'admin'), so is_admin / grant_role resolve the wrong role — privilege escalation."
+    keywords: ["role_id_by_name", "scope", "ambiguous", "escalat", "is_admin", "bare name"]
+  - id: D2
+    file: db/seed.sql
+    lines: [2, 4]
+    severity: critical
+    summary: "Unchanged seed uses ON CONFLICT (name) but the migration dropped the unique constraint on name alone; Postgres rejects it (no matching unique constraint), so every deploy's seed fails."
+    keywords: ["ON CONFLICT", "seed", "no unique", "conflict target", "(scope, name)"]

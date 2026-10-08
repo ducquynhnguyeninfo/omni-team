@@ -1,0 +1,16 @@
+id: py-search
+language: python
+request: "Add product search by name for the storefront search box."
+defects:
+  - id: D1
+    file: app/db.py
+    lines: [20, 21]
+    severity: critical
+    summary: "User-supplied term is interpolated into SQL (SQL injection); must use a bound parameter."
+    keywords: ["injection", "parameter", "f-string", "interpolat", "bind"]
+  - id: D2
+    file: app/db.py
+    lines: [19, 23]
+    severity: warning
+    summary: "Connection is not closed when execute/fetchall raises (no try/finally or context manager)."
+    keywords: ["close", "finally", "leak", "context manager", "with "]

@@ -91,3 +91,11 @@ Migrating a v1 manifest: move stack facts (paths, commands, URLs) into `componen
 | `install.py --skills a,b,c` selects skills (default `all`) | deselected managed skills are removed from the project |
 | Library skill `drawio-skill` (MIT, upstream Agents365-ai, pinned in `skills/drawio-skill/UPSTREAM.md`) | needs the draw.io desktop CLI; Graphviz optional |
 | Third-party skills must ship `LICENSE` + `UPSTREAM.md` (a test enforces it) and have a licence that allows redistribution | do not add proprietary skills to this repository |
+
+## Compatibility notes (v2.5 → v2.6)
+
+| Change | Impact |
+|---|---|
+| Protocol scope rule "the diff is where you start, not where you stop" + `CR-19` (code-reviewer), `DR-14` (data-reviewer), `SE-16` (security-engineer): when a change alters an invariant, dependents in unchanged files are searched and reported under **Invariants changed** | new rule ids appended; reports gain one header line. Benchmarked: same recall and cost, the sweep is now visible in 100% of reports (was 0%) |
+| Protocol: the final message must be the complete report; Claude engine runs with `--disallowedTools ReportFindings` | fixes a headless failure where the report was filed through a tool and lost from the artifact |
+| `install.py --dir` accepts a pre-seeded `.omni-team/` holding only `project/` (and `runs/`) — profile written before installing; existing project files are never overwritten | write `project/profile.yaml` + `conventions.md` first, then install |

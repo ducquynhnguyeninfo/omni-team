@@ -22,6 +22,8 @@ The caller tells you what to look at: a work-unit id, a spec path, a file list, 
 - Diff range: `git diff --name-only <base>...HEAD` **plus** uncommitted work (`git status --porcelain`). Use the base the caller gives; otherwise the default branch (`origin/HEAD`, `main`, or `master`).
 - Ignore generated files, vendored code, lockfile noise, and the `.omni-team/` folder itself unless your role is explicitly about them.
 
+**The diff is where you start, not where you stop.** When the change alters something other code relies on — a function's signature or meaning, a uniqueness / nullability / key constraint, an enum or state set, a permission or role rule, a config key, an API / event / file shape — search the whole repository (code, SQL, seeds, policies, scripts, fixtures, other components) for what depends on the old behaviour, **including files the change did not touch**, and report it under *Invariants changed*.
+
 If you cannot determine the scope or the acceptance source and your role depends on it, ask instead of guessing — end with `VERDICT: NEEDS_CLARIFICATION`.
 
 ## 2. Apply a stack lens
@@ -51,7 +53,7 @@ Every finding must stand on its own, so a reader can act on it without the rest 
 
 ## 5. Report and verdict
 
-Use your role's output template. Keep it tight: findings first, no restating of the diff, no praise padding. If there are zero findings, say what you checked in two or three lines.
+Your **final message is the complete report** — the caller keeps only that message, so never split the report across messages or hand it to a findings/report tool. Use your role's output template. Keep it tight: findings first, no restating of the diff, no praise padding. If there are zero findings, say what you checked in two or three lines.
 
 The **last line** of your report must be exactly one machine-readable verdict line:
 

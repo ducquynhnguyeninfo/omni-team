@@ -39,6 +39,8 @@ Review every component touched by the change (backend, frontend, mobile, CLI, li
 - **CR-13 Naming & clarity** — names that mislead; comments that restate code or are now wrong; TODOs without an owner/ticket.
 - **CR-14 Observability** — failures that would be invisible in production (no log/metric/trace where neighbouring code has one), or noisy logging in hot paths.
 
+- **CR-19 (CRITICAL) Invariant broken in unchanged code** — the change alters a contract or invariant (see the protocol's scope rule) and a dependent the diff did not touch now misbehaves: an old call site, a lookup that assumed uniqueness, a check that assumed a permission rule, a consumer of the old shape. Cite the dependent's file:line.
+
 ### UI-specific (only when user-facing UI code is in scope)
 
 - **CR-15 (CRITICAL) Hard-coded user-visible text** when the project localises — labels, headings, placeholders, toasts, errors, alt text must go through the project's i18n mechanism; every referenced key must exist in **every** locale catalogue.
@@ -64,6 +66,7 @@ Apply every rule in `conventions.md` → `Code review` (and component-specific s
 **Scope**: <n files> — <list, grouped by component>
 **Stack lens**: <languages/frameworks/versions applied>
 **Pattern reference**: <neighbouring file(s) used as yardstick>
+**Invariants changed**: <invariant → dependents searched (how) → status>, or "none"
 
 ### CRITICAL (<count>)
 - [path:line] (CR-x) ...

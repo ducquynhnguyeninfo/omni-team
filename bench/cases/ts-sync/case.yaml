@@ -1,0 +1,16 @@
+id: ts-sync
+language: typescript
+request: "Add syncItems(store, items) that saves every item and reports how many were saved."
+defects:
+  - id: D1
+    file: src/sync.ts
+    lines: [18, 21]
+    severity: critical
+    summary: "forEach with an async callback is not awaited: the function returns before saves finish, saved is 0 and rejections are unhandled."
+    keywords: ["forEach", "not awaited", "await", "Promise.all", "for...of", "for of"]
+  - id: D2
+    file: src/sync.ts
+    lines: [23, 24]
+    severity: critical
+    summary: "catch returns ok: true, hiding failures from the caller."
+    keywords: ["ok: true", "swallow", "hides", "catch", "failure"]

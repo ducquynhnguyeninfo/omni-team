@@ -1,0 +1,16 @@
+id: ts-invoices
+language: typescript
+request: "Add GET /invoices/:id so a signed-in user can open one of their invoices."
+defects:
+  - id: D1
+    file: src/routes.ts
+    lines: [14, 18]
+    severity: critical
+    summary: "No ownership check: any signed-in user can read any invoice by id (IDOR)."
+    keywords: ["owner", "IDOR", "authoriz", "any user", "ownerId"]
+  - id: D2
+    file: src/routes.ts
+    lines: [19, 20]
+    severity: warning
+    summary: "Error message and stack trace are returned to the client."
+    keywords: ["stack", "leak", "internal", "err.message"]

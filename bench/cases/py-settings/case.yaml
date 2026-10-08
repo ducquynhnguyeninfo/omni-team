@@ -1,0 +1,16 @@
+id: py-settings
+language: python
+request: "Add merge_overrides and effective_retries helpers for user configuration."
+defects:
+  - id: D1
+    file: app/settings.py
+    lines: [8, 12]
+    severity: critical
+    summary: "Mutable default argument base={} is shared across calls, so overrides leak between callers."
+    keywords: ["mutable default", "shared", "base={}", "default argument", "None"]
+  - id: D2
+    file: app/settings.py
+    lines: [16, 18]
+    severity: warning
+    summary: "`if not retries` treats an explicit 0 as missing and silently replaces it with the default."
+    keywords: ["0", "zero", "falsy", "is None"]

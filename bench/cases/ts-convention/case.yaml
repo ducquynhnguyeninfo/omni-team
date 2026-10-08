@@ -1,0 +1,16 @@
+id: ts-convention
+language: typescript
+request: "Add GET /products/:id/sale-price returning the discounted price for a discount percentage (default 10%)."
+defects:
+  - id: D1
+    file: src/routes.ts
+    lines: [24, 25]
+    severity: critical
+    summary: "Computes with floating-point dollars instead of integer cents and applyPercent/formatPrice (violates the CLAUDE.md money rule)."
+    keywords: ["cents", "applyPercent", "floating", "float", "dollars"]
+  - id: D2
+    file: src/routes.ts
+    lines: [17, 18]
+    severity: warning
+    summary: "Ad-hoc error JSON instead of sendError (violates the CLAUDE.md error rule; wrong shape for clients)."
+    keywords: ["sendError", "error shape", "code", "ad-hoc"]

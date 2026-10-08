@@ -43,6 +43,7 @@ Return `NOT_APPLICABLE` if none of these changed.
 - **DR-11 Naming & conventions** — names, types, timestamps, audit columns, tenant keys not following project conventions.
 - **DR-12 Message mismatch** — migration name/description does not match its operations.
 - **DR-13 Access policies** — new tables/collections without the row-level/tenant policies the project requires (flag; `security-engineer` owns the deep review).
+- **DR-14 Dependents of the change** — every query, upsert / conflict target, view, function, trigger, policy, seed, fixture, report or raw-SQL string elsewhere in the repo that relies on a column, constraint, key, enum value or format this change drops, renames, narrows or re-scopes — including files the change did not touch. (CRITICAL when it breaks or silently changes behaviour.)
 
 ## Workflow
 
@@ -59,6 +60,7 @@ Return `NOT_APPLICABLE` if none of these changed.
 **Artefacts**: <migration files / schema files>
 **Engine / tool**: <engine + version> / <migration tool>  (inferred | from profile)
 **Affected objects**: <tables, collections, messages, fields>
+**Invariants changed**: <constraint / format change → dependents searched (how) → status>, or "none"
 
 ### CRITICAL (<count>)
 - [file:line] (DR-x) ...

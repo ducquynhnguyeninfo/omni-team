@@ -200,9 +200,9 @@ orchestrator:
     request_changes_max: 3
   engines:
     claude:
-      cmd: ["claude", "-p", "--model", "{tier}",
+      cmd: ["claude", "-p", "--model", "{tier}", "--disallowedTools", "ReportFindings",
             "--allowedTools", "Read,Grep,Glob,Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git status:*),Bash(ls:*)"]
-      cmd_run: ["claude", "-p", "--model", "{tier}",
+      cmd_run: ["claude", "-p", "--model", "{tier}", "--disallowedTools", "ReportFindings",
                 "--allowedTools", "Read,Grep,Glob,Bash,Write(.omni-team/runs/**)"]
       tiers: { deep: opus, standard: sonnet, fast: haiku }
     codex:

@@ -1,0 +1,4 @@
+id: py-clean-refactor
+language: python
+request: "Refactor monthly_report: extract the per-month aggregation into a helper. No behaviour change."
+defects: []

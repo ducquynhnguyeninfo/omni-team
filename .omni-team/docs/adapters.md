@@ -58,8 +58,8 @@ orchestrator:
   engine: claude
   engines:
     claude:
-      cmd:     ["claude", "-p", "--model", "{tier}", "--allowedTools", "Read,Grep,Glob,Bash(git diff:*),…"]
-      cmd_run: ["claude", "-p", "--model", "{tier}", "--allowedTools", "Read,Grep,Glob,Bash,Write(.omni-team/runs/**)"]
+      cmd:     ["claude", "-p", "--model", "{tier}", "--disallowedTools", "ReportFindings", "--allowedTools", "Read,Grep,Glob,Bash(git diff:*),…"]
+      cmd_run: ["claude", "-p", "--model", "{tier}", "--disallowedTools", "ReportFindings", "--allowedTools", "Read,Grep,Glob,Bash,Write(.omni-team/runs/**)"]
       tiers:   { deep: opus, standard: sonnet, fast: haiku }
     codex:
       cmd:     ["codex", "exec", "--sandbox", "read-only", "-c", "model_reasoning_effort=\"{tier}\"", "-"]
@@ -71,6 +71,7 @@ orchestrator:
 - `{tier}` is replaced inside any element by the engine's value for the role's tier.
 - `cmd_run` is used for `access: run` roles (`smoke-tester`); it falls back to `cmd`.
 - The engine's stdout is the report; a non-zero exit with no verdict line becomes `BLOCKED`.
+- `claude -p` returns only the **final message**. The protocol tells every role to put the whole report there, and the Claude engine disables the host's `ReportFindings` tool, which a model once used to file its findings — leaving only a one-line verdict in the artifact.
 
 ### Adding an engine
 

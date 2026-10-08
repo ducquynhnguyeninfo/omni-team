@@ -1,0 +1,16 @@
+id: go-copy
+language: go
+request: "Add CopyAll(srcs, dstDir) to copy a list of files into a directory."
+defects:
+  - id: D1
+    file: fsutil/fsutil.go
+    lines: [30, 30]
+    severity: critical
+    summary: "io.Copy error is ignored; a failed or partial copy is reported as success."
+    keywords: ["io.Copy", "ignored", "error", "unchecked"]
+  - id: D2
+    file: fsutil/fsutil.go
+    lines: [22, 28]
+    severity: warning
+    summary: "defer Close inside the loop keeps every file open until the function returns (descriptor exhaustion); out.Close error also ignored."
+    keywords: ["defer", "loop", "descriptor", "file handle", "until the function returns"]

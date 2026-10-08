@@ -1,7 +1,8 @@
 """
 Vendoring — copy (or upgrade) the framework into a host project.
 
-    fresh    <project>/.omni-team/ does not exist → copy the runtime set + project/ template
+    fresh    <project>/.omni-team/ does not exist, or holds only project/ / runs/ written
+             before installing → copy the runtime set; the project/ template fills gaps only
     upgrade  it exists → replace framework files, delete framework files that are no longer
              shipped, and NEVER touch project/ or runs/ (they belong to the host)
     same     the source already is <project>/.omni-team/ → nothing to copy
@@ -124,10 +125,16 @@ def _shipped_files(source: Path, full: bool, with_skills: bool) -> List[Path]:
     return expand(source, entries)
 
 
+def is_preseeded(target: Path) -> bool:
+    """A folder holding only host-owned entries (e.g. a profile written before installing)."""
+    entries = [p for p in target.iterdir() if p.name not in EXCLUDED_NAMES]
+    return not (target / MARKER_FILE).exists() and all(p.name in HOST_OWNED for p in entries)
+
+
 def _check_target(source: Path, project_dir: Path, result: VendorPlan, force: bool) -> None:
     if source == project_dir or source in project_dir.parents:
         raise VendorError(f"refusing to vendor into a folder inside the framework source: {project_dir}")
-    if not result.target.exists():
+    if not result.target.exists() or is_preseeded(result.target):
         return
     if not (result.target / MARKER_FILE).exists():
         raise VendorError(f"{result.target} exists but is not an omni-team folder (no {MARKER_FILE}); move it away first")
@@ -148,15 +155,16 @@ def plan(source: Path, project_dir: Path, force: bool = False, full: bool = Fals
     if target.exists() and target.resolve() == source:
         return result
     _check_target(source, project_dir, result, force)
-    fresh = not target.exists()
+    fresh = not target.exists() or is_preseeded(target)
     result.mode = "fresh" if fresh else "upgrade"
     if fresh:
         result.from_version = ""
 
     result.files = _shipped_files(source, full, with_skills)
     copies = list(result.files)
-    if fresh:
-        copies += [Path("project") / rel for rel in framework_files(source / "project")]
+    if fresh:  # the project template only fills gaps — a pre-written profile is never overwritten
+        copies += [Path("project") / rel for rel in framework_files(source / "project")
+                   if not (target / "project" / rel).exists()]
     for rel in copies:
         src, dst = source / rel, target / rel
         if not dst.exists():

@@ -1,0 +1,16 @@
+id: go-cache
+language: go
+request: "Add GetOrLoad and a background RefreshEvery to the cache."
+defects:
+  - id: D1
+    file: cache/cache.go
+    lines: [31, 36]
+    severity: critical
+    summary: "GetOrLoad reads and writes the map without holding mu: data race / concurrent map writes on a type documented as concurrency-safe."
+    keywords: ["race", "lock", "mutex", "mu.Lock", "concurrent map"]
+  - id: D2
+    file: cache/cache.go
+    lines: [43, 45]
+    severity: critical
+    summary: "RefreshEvery's goroutine writes the map without the lock, and the goroutine/ticker can never be stopped (leak)."
+    keywords: ["goroutine", "lock", "race", "leak", "stop", "time.Tick"]

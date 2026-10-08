@@ -1,0 +1,4 @@
+id: ts-clean-feature
+language: typescript
+request: "Add formatPercent(ratio, fractionDigits) next to formatPrice, with tests."
+defects: []

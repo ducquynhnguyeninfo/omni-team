@@ -145,6 +145,20 @@ class VendorPlanTest(TempProject):
         with self.assertRaises(vendor.VendorError):
             vendor.plan(FRAMEWORK, Path(self.tmp.name) / "missing")
 
+    def test_preseeded_project_folder_installs_without_overwriting(self):
+        (self.target / "project").mkdir(parents=True)
+        (self.target / "project" / "profile.yaml").write_text("version: 1\nproject: {name: Pre}\n")
+        vplan = vendor.plan(FRAMEWORK, self.project)
+        self.assertEqual(vplan.mode, "fresh")
+        vendor.apply(vplan)
+        self.assertIn("Pre", (self.target / "project" / "profile.yaml").read_text())
+        self.assertTrue((self.target / "project" / "conventions.md").exists(), "missing template files are added")
+        self.assertTrue((self.target / "orchestrator.py").exists())
+
+    def test_empty_existing_folder_counts_as_fresh(self):
+        self.target.mkdir()
+        self.assertEqual(vendor.plan(FRAMEWORK, self.project).mode, "fresh")
+
     def test_same_folder_is_a_no_op(self):
         self.assertEqual(vendor.plan(FRAMEWORK, FRAMEWORK.parent).mode, "same")
 

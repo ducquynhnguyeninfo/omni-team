@@ -1,0 +1,51 @@
+# Review benchmark contenders.
+#
+# kind: agent-file → a Claude agent definition used verbatim (+ path mapping) with the same invocation
+#       omni-role → the omni-team role prompt (role + protocol + invocation block) is piped on
+#                   stdin, exactly as the headless orchestrator does
+#       prompt    → a literal prompt, e.g. a Claude Code slash command, passed as an argument
+# cmd:  argv; "{model}" is replaced by the contender's model; a "{prompt}" element receives the
+#       prompt of `prompt` contenders (keep it before variadic flags such as --allowedTools). Use `--output-format json` so cost,
+#       turns and errors can be read. Every contender gets the same read-only tool allow-list.
+
+defaults:
+  model: sonnet
+
+read_only_tools: &read_only "Read,Grep,Glob,Agent,Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git status:*),Bash(git rev-parse:*),Bash(git merge-base:*),Bash(ls:*)"
+
+contenders:
+  omni-code-reviewer:
+    kind: omni-role
+    role: code-reviewer
+    cmd: [claude, -p, --output-format, json, --model, "{model}", --disallowedTools, ReportFindings, --allowedTools, *read_only]
+
+  cc-code-review:
+    kind: prompt
+    prompt: "/code-review medium"
+    cmd: [claude, -p, "{prompt}", --output-format, json, --model, "{model}", --allowedTools, *read_only]
+
+  omni-data-reviewer:
+    kind: omni-role
+    role: data-reviewer
+    cmd: [claude, -p, --output-format, json, --model, "{model}", --disallowedTools, ReportFindings, --allowedTools, *read_only]
+
+  omni-security-engineer:
+    kind: omni-role
+    role: security-engineer
+    cmd: [claude, -p, --output-format, json, --model, "{model}", --disallowedTools, ReportFindings, --allowedTools, *read_only]
+
+  cc-security-review:
+    kind: prompt
+    prompt: "/security-review"
+    cmd: [claude, -p, "{prompt}", --output-format, json, --model, "{model}", --allowedTools, *read_only]
+
+  # Any hand-written Claude agent can compete verbatim, with its paths mapped onto the case
+  # layout. Copy, point `path` at the agent file and uncomment (paths support ~ and $VARS):
+  # host-backend-reviewer:
+  #   kind: agent-file
+  #   path: $HOST_REPO/.claude/agents/backend-reviewer.md
+  #   replace: {"my-backend/": ""}
+  #   cmd: [claude, -p, --output-format, json, --model, "{model}", --disallowedTools, ReportFindings, --allowedTools, *read_only]
+
+# Run when --contenders is not given.
+default_contenders: [omni-code-reviewer, cc-code-review]

@@ -1,0 +1,16 @@
+id: py-pagination
+language: python
+request: "Add a paginated order listing: list_orders_page(db, page, page_size) returning items, page and total pages."
+defects:
+  - id: D1
+    file: app/orders.py
+    lines: [20, 21]
+    severity: critical
+    summary: "Slice end is start + page_size - 1, so every page drops its last item."
+    keywords: ["off-by-one", "page_size - 1", "drops", "one fewer", "last item"]
+  - id: D2
+    file: app/orders.py
+    lines: [24, 27]
+    severity: critical
+    summary: "total_pages uses floor division and ignores a partial last page."
+    keywords: ["floor", "partial", "ceil", "round up", "remainder"]

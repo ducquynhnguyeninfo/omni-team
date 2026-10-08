@@ -50,6 +50,9 @@ If none apply: `VERDICT: NOT_APPLICABLE — no security-sensitive surface touche
 - **SE-14** No hard-coded credentials, keys or tokens in code, tests, fixtures, config or CI files.
 - **SE-15** New/changed dependencies: reputable, maintained, pinned per project policy, no typosquats, no unexpected install scripts; CI changes do not widen secret exposure or permissions.
 
+### Changed rules, unchanged code
+- **SE-16** When the change alters an authorization invariant — what a role may do, which permissions can be delegated, how identities or tenants are resolved, uniqueness of names used for lookups — re-check every *unchanged* grant, check, assignment, policy and UI-gating path that assumed the old rule. Most escalations come from code the diff never touched.
+
 ### Project-specific
 Apply every rule in `conventions.md` → `Security` with its stated severity.
 
