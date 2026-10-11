@@ -118,3 +118,14 @@ Migrating a v1 manifest: move stack facts (paths, commands, URLs) into `componen
 | Findings carry stable ids `F1, F2 …`; re-reviews open with an *Earlier findings* table and repeat only open/new findings | shorter re-review reports; role templates show `- F<n> [path:line] (RULE-ID)` |
 | `orchestrator.py record <role> --task <id>` persists externally produced reports (native sub-agents) through the same rotation and state | the manual flow no longer appends unbounded files |
 | Task id guidance: one per work item, not per branch | — |
+
+## Compatibility notes (v2.8 → v2.9)
+
+Selected practices from other agent toolkits (superpowers, gstack, Claude Code's `/security-review`, Anthropic's `frontend-design`); their auto-fixing reviewers and push/merge commands were deliberately left out.
+
+| Change | Impact |
+|---|---|
+| `AGENTS.md` §5 Implement gains working rules for the implementer: verify each phase before the next, reproduce a bug with a failing test first, debug from evidence (stop after 3 failed fixes), claim "done"/"passes" only with output from a command that ran | `omni-task` skill points to them; no role or routing change |
+| `security-engineer`: explicit non-findings (trusted config inputs, fields of authenticated messages, robustness-only defects → `code-reviewer`) and "report problems only" | fewer judgement-call extras; recall unchanged on the security bench (see `bench/README.md`) |
+| Library skill `frontend-design` (Apache-2.0, upstream anthropics/skills, pinned in `skills/frontend-design/UPSTREAM.md`) | installed with the other skills; `--skills` can deselect it |
+| Third-party skills may ship `LICENSE`, `LICENSE.txt` or `LICENSE.md` | — |

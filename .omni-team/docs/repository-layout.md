@@ -18,7 +18,8 @@
 │
 ├── skills/                       workflow entry points (SKILL.md works in Claude Code and Codex)
 │   ├── omni-setup/  omni-task/  omni-plan/  omni-review/  omni-ship/  ba/  architect/  pm/  release/
-│   └── drawio-skill/             library skill (MIT, vendored with LICENSE + UPSTREAM.md)
+│   ├── drawio-skill/             library skill (MIT, vendored with LICENSE + UPSTREAM.md)
+│   └── frontend-design/          library skill (Apache-2.0, vendored with LICENSE.txt + UPSTREAM.md)
 │
 ├── project/                      ← the ONLY folder a host project edits
 │   ├── profile.yaml              structured facts (auto by default)

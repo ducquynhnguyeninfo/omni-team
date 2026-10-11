@@ -35,7 +35,8 @@ class CanonicalSourcesTest(unittest.TestCase):
     def test_third_party_skills_carry_their_licence(self):
         for skill in load_skills():
             if (skill.source.parent / "UPSTREAM.md").exists():
-                self.assertTrue((skill.source.parent / "LICENSE").exists(), f"{skill.name} lacks its LICENSE")
+                self.assertTrue(any((skill.source.parent / n).exists() for n in ("LICENSE", "LICENSE.txt", "LICENSE.md")),
+                                f"{skill.name} lacks its LICENSE")
 
     def test_frontmatter_errors_are_loud(self):
         with self.assertRaises(RoleError):

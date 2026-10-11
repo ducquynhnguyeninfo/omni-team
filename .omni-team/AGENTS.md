@@ -17,7 +17,7 @@ You — the main agent — are the **implementer**. The team members are **an an
 | `project/profile.yaml` | Structured project facts — components, stacks, commands, URLs. `auto` = infer | **project** |
 | `project/conventions.md` | Project rulebook, one section per role | **project** |
 | `defaults.yaml` | Default signals, routing rules, engines | framework (override in profile) |
-| skills | Entry-point workflows, installed natively in `.claude/skills/` and `.agents/skills/` (`skills/<name>/SKILL.md` here only for tools without native skills): `omni-setup`, `omni-task`, `omni-plan`, `omni-review`, `omni-ship`, per-role `ba`, `architect`, `pm`, `release`, and library skills such as `drawio-skill` (diagrams — useful for `architect` sketches and `pm`/`ba` documents) | framework |
+| skills | Entry-point workflows, installed natively in `.claude/skills/` and `.agents/skills/` (`skills/<name>/SKILL.md` here only for tools without native skills): `omni-setup`, `omni-task`, `omni-plan`, `omni-review`, `omni-ship`, per-role `ba`, `architect`, `pm`, `release`, and library skills such as `drawio-skill` (diagrams — useful for `architect` sketches and `pm`/`ba` documents) and `frontend-design` (use when you build or reshape UI) | framework |
 | `runs/<task-id>/` | Artifacts: one report file per role, `_state.json`, `_summary.md` | generated |
 
 ## The roster
@@ -67,7 +67,14 @@ When several people (or a BA/PO) deliver the work, follow with `pm` in **TASKING
 
 ### 5. Implement
 
-Follow the plan phase by phase, mirroring the reference pattern it names. Respect `project/conventions.md`. Run the project's checks — **Gate 0** — until they pass: `python3 .omni-team/orchestrator.py checks --task <id>` runs the profile's `checks` (or the touched components' `lint` / `typecheck` / `test` commands) and logs to `runs/<id>/_checks.md`. Without Python, run those commands yourself (or what the repo's README/CI uses). Never request review on red checks — the headless `run` refuses to (exit 7).
+Follow the plan phase by phase, mirroring the reference pattern it names. Respect `project/conventions.md`. The gates review what you produce; these rules keep findings from appearing in the first place:
+
+- **One phase at a time.** Run the phase's verification from the plan before starting the next phase.
+- **Bug fix → reproduce first.** Write the test that reproduces the bug, run it and see it fail for the expected reason, then fix and see it pass (`test-engineer` TE-4 asks for exactly this test). If no test can reproduce it, say why in the summary.
+- **Debug from evidence.** Reproduce, read the actual error, trace back to the first wrong value, then change code for one stated hypothesis at a time — no stacked speculative fixes. After **3** failed fix attempts on the same problem, stop and report what you tried and learned (the same budget as a gate).
+- **Claims need evidence.** Before writing "fixed", "done" or "passes", run the command that proves it in this session and quote the decisive output line. Never report a check you did not run; say what you skipped.
+
+Run the project's checks — **Gate 0** — until they pass: `python3 .omni-team/orchestrator.py checks --task <id>` runs the profile's `checks` (or the touched components' `lint` / `typecheck` / `test` commands) and logs to `runs/<id>/_checks.md`. Without Python, run those commands yourself (or what the repo's README/CI uses). Never request review on red checks — the headless `run` refuses to (exit 7).
 
 ### 6. Review (stages run in order; gates inside a stage are independent)
 

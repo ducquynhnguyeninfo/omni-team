@@ -118,6 +118,17 @@ omni-team `security-engineer` vs Claude Code `/security-review` (model sonnet, r
 
 Caveats as above: small synthetic cases written by the omni-team author, one model, three runs.
 
+### After calibrating `security-engineer` (v2.9, `results/security-20261011-calibrated`)
+
+Borrowed from `/security-review`'s filter: explicit non-findings (trusted config inputs, fields of authenticated messages, robustness-only defects → `code-reviewer`) and "report problems only". WARNING-level checks were kept — they are where omni beat the built-in.
+
+| omni `security-engineer` | before | after |
+|---|---|---|
+| Defects found | 30/30 | **30/30** (timing compare still 3/3) |
+| Cited items on clean cases (verdicts were already all APPROVE / NOT_APPLICABLE) | 10 | **0** |
+| Extra findings on seeded cases | 4 | 3 — one is a real issue the key lacks (user-uploaded `.html`/`.svg` served inline → stored XSS) |
+| Cost per run | $0.096 | $0.100 (within run-to-run variance) |
+
 ## Adding a case
 
 1. `cases/<id>/base/…` and `cases/<id>/change/…` (only changed or new files in `change/`).

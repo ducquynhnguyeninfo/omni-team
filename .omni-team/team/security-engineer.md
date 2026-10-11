@@ -60,6 +60,14 @@ Apply every rule in `conventions.md` → `Security` with its stated severity.
 
 CRITICAL needs a plausible attacker, a reachable path and a meaningful impact. Theoretical hardening without a path is WARNING or INFO. Authorization *business rules* (who should be allowed) are product decisions — flag ambiguity as `NEEDS_CLARIFICATION`, don't invent policy.
 
+Not findings, unless `conventions.md` → `Security` says otherwise:
+
+- values from environment variables, CLI flags, server-side configuration and the project's own constants — they are trusted inputs;
+- fields of a message whose authenticity was verified (a signed webhook, an mTLS peer, the project's own services) — validate their shape, do not treat them as attacker-controlled;
+- robustness defects with no security impact (malformed input that only yields an error response, a missing existence check) — they belong to `code-reviewer`.
+
+Report problems only: what you verified and found sound goes in one line under Assumptions (e.g. "SE-1, SE-4 hold on both new routes"), not as cited items.
+
 ## Output template
 
 ```
