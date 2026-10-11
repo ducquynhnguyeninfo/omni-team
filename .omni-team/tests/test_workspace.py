@@ -113,6 +113,15 @@ class WorkspaceTest(unittest.TestCase):
         undeclared = diffscope.compute(self.ws, "auto", True, [], [COMPS[0]])
         self.assertIn("frontend", undeclared.scope.changed_paths, "an undeclared nested repo is still reported")
 
+    def test_excludes_pointing_into_ignored_folders_do_not_break_snapshots(self):
+        self.init_workspace()
+        write(self.ws / ".gitignore", "backend/\nfrontend/\n.claude/\n")
+        write(self.ws / ".claude/agents/x.md", "generated\n")
+        write(self.ws / "docs/a.md", "a\n")
+        info = diffscope.compute(self.ws, "auto", True, [".claude/agents/x.md", ".omni-team/**"], COMPS)
+        self.assertIn("docs/a.md", info.scope.changed_paths)
+        self.assertNotIn(".claude/agents/x.md", info.scope.changed_paths)
+
     def test_single_repo_snapshot_stays_a_plain_tree(self):
         self.init_workspace()
         info = diffscope.compute(self.ws, "auto", True, [], [{"name": "ws", "path": "."}])

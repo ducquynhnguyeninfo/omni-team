@@ -98,6 +98,25 @@ def _pathspec(excludes: List[str]) -> List[str]:
     return ["--", "."] + [f":(exclude,glob){pattern}" for pattern in excludes]
 
 
+_GLOB_CHARS = set("*?[")
+
+
+def _drop_ignored(cwd: Path, excludes: List[str]) -> List[str]:
+    """Exclude pathspecs naming paths git already ignores make `git add` fail ("paths are ignored");
+    those paths never enter the snapshot anyway, so drop them. Glob patterns are kept as they are."""
+    probes = {}
+    for pattern in excludes:
+        base = pattern[:-3] if pattern.endswith("/**") else pattern
+        if base and not (_GLOB_CHARS & set(base)):
+            probes[pattern] = base
+    if not probes:
+        return list(excludes)
+    done = subprocess.run(["git", "check-ignore", "--stdin"], cwd=str(cwd), input="\n".join(probes.values()) + "\n",
+                          capture_output=True, text=True, check=False)
+    ignored = set(done.stdout.split())
+    return [p for p in excludes if probes.get(p) not in ignored]
+
+
 def snapshot_tree(cwd: Path, excludes: List[str]) -> str:
     """Write the working tree (incl. untracked, minus ignored and excluded paths) as a tree object.
 
@@ -115,7 +134,7 @@ def snapshot_tree(cwd: Path, excludes: List[str]) -> str:
             # data and miss same-size edits (e.g. a one-character fix right after a commit).
             shutil.copy2(real_index, tmp_index)
         env = {**os.environ, "GIT_INDEX_FILE": str(tmp_index)}
-        git(["add", "-A", *_pathspec(excludes)], cwd, env=env)
+        git(["add", "-A", *_pathspec(_drop_ignored(cwd, excludes))], cwd, env=env)
         _, out = git(["write-tree"], cwd, env=env)
     return out.strip()
 
