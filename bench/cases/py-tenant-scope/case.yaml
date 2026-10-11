@@ -1,0 +1,16 @@
+id: py-tenant-scope
+language: python
+request: "Add a 'top customers' dashboard widget: the tenant's best customers by total spend."
+defects:
+  - id: D1
+    file: app/reports.py
+    lines: [19, 26]
+    severity: critical
+    summary: "Queries Customer/Order directly instead of scoped(): no tenant filter, so every tenant sees all tenants' customers (cross-tenant data leak; violates CLAUDE.md)."
+    keywords: ["tenant", "scoped", "cross-tenant", "multi-tenant"]
+  - id: D2
+    file: app/reports.py
+    lines: [18, 18]
+    severity: warning
+    summary: "Logs the whole request headers, including Authorization/Cookie tokens (violates CLAUDE.md: use safe_headers)."
+    keywords: ["safe_headers", "Authorization", "token", "credential", "headers"]

@@ -5,7 +5,8 @@ Measures code reviewers on changes with **seeded defects**, so "is omni-team's r
 ## How it works
 
 - `cases/<id>/` — a tiny codebase (`base/`), a change (`change/`) and the answer key (`case.yaml`: defect id, file, line range, severity, keywords). Clean cases have `defects: []` and measure noise.
-- Every run gets a **fresh temporary git repo**: `base/` committed, `change/` applied as uncommitted work. The answer key never enters that repo.
+- Every run gets a **fresh temporary git repo**: `base/` committed, `change/` applied as uncommitted work (new files intent-to-add), `origin/HEAD` at the base commit like a real clone. The answer key never enters that repo.
+- A run that ends with zero turns or an empty answer counts as an **error** (e.g. a slash command handled locally without reaching the model).
 - `contenders.yaml` — who competes. `agent-file` contenders run any Claude agent definition verbatim (with a path mapping onto the case layout), e.g. a project's hand-written reviewers. `omni-role` contenders receive the omni-team role prompt on stdin exactly like the headless orchestrator; `prompt` contenders run a literal prompt such as `/code-review medium`. All use `claude -p --output-format json` with the same model and the same read-only tool allow-list, so cost and turns are measured.
 - Scoring (`benchlib.py`): findings are extracted from `file:line` citations or JSON findings.
   - **strict** — a finding cites the defect's file within ±3 lines;
@@ -41,6 +42,10 @@ Results land in `bench/results/<timestamp>/`: `report.md`, `results.json`, raw o
 | py-invariant-scope-large | Python + SQL | the same, with ~30 unrelated modules and the dependents buried in `app/admin/access/` and `scripts/seed/` | invariant change |
 | py-clean-refactor | Python | — (behaviour-preserving refactor) | clean |
 | ts-clean-feature | TypeScript | — (small correct feature with tests) | clean |
+| py-webhook | Python | full-read SSRF in a "send test event" button, HMAC compared with `!=` | security |
+| ts-files | TypeScript | mass assignment (`role=admin`), path traversal in a download route | security |
+| py-tenant-scope | Python | query bypasses the `scoped()` tenant filter required by `CLAUDE.md`, whole headers (tokens) logged | security / conventions |
+| ts-clean-notes | TypeScript | — (owner-scoped GET/DELETE routes; security-sensitive but correct) | clean |
 
 ## Results — 2026-10-08 (`results/20261008-012241`)
 
@@ -89,6 +94,29 @@ Findings:
 - **The synthetic cases do not reproduce the miss.** Every reviewer, including the client project's own scope-restricted agents, searched the repo and found both broken dependents. The real misses therefore depend on things a small repo lacks — scale (thousands of files), indirect consequences, a main agent that hands the gate a narrow file list. A faithful test needs a real historical diff replayed on the real repository.
 - **What the rule does buy, measurably:** the sweep becomes **auditable** — every report states which invariant changed, how dependents were searched and what was found — at no measurable cost in recall, noise or price.
 - **Side discovery:** in one run the model filed its findings through Claude Code's `ReportFindings` tool, so `claude -p` returned only a one-line verdict and the report was lost. Fixed in the protocol (final message = full report) and by disabling that tool for omni engines (`go-cache` re-run: 8/8, every report complete).
+
+## Results — security review, 2026-10-11 (`results/security-20261011`)
+
+omni-team `security-engineer` vs Claude Code `/security-review` (model sonnet, read-only tools). 8 cases: 5 with 10 seeded defects (py-search, ts-invoices, py-webhook, ts-files, py-tenant-scope) and 3 clean (py-clean-refactor, ts-clean-feature, ts-clean-notes) × 3 runs.
+
+| | omni-team `security-engineer` | Claude Code `/security-review` |
+|---|---|---|
+| Defects found (strict = lenient) | **30/30 (100%)** | 27/30 (90%) — missed the `!=` HMAC compare 3/3 (timing side channel) |
+| SQLi, IDOR, SSRF, mass assignment, traversal, cross-tenant leak (CLAUDE.md rule), token logging | all 3/3 | all 3/3 |
+| Clean cases (9 runs) | 0 problems raised: verdict `NOT_APPLICABLE` 6/6, `APPROVE` 3/3 on ts-clean-notes. The scorer counts 10 "findings" there, but all are `file:line` citations in "what I checked" notes or INFO | 0 findings |
+| Extra findings on seeded cases | 4 — judgement calls on py-webhook (`order_id` trusted from a signed event, unhandled malformed JSON, no replay protection) | 0 |
+| Verdict / severity | `BLOCK` on 15/15 seeded runs; machine-readable `VERDICT` line | High/Medium/Low per finding, no verdict |
+| Cost per run | $0.096 | $0.088 (−8%) |
+| Mean time per run | 15 s | 13 s |
+
+### Reading
+
+- **Detection is a near-tie on high-impact bugs**; both read `CLAUDE.md` and caught the convention-only tenant leak. `/security-review` reports only findings it rates ≥ 8/10 confidence and excludes classes by design (DoS, rate limits, hardening, theoretical issues), so it stays silent on lower-impact defects such as a non-constant-time compare. omni reports them as WARNING.
+- **Noise**: `/security-review` is the quietest (0 extras). omni's extras are hedged judgement calls; on clean changes it approved every time.
+- **Price is the same** here (the security prompt of `/security-review` is long too), unlike code review where the built-in was 45% cheaper.
+- **Harness note**: `/security-review` diffs against `origin/HEAD`. Without that ref `claude -p "/security-review"` returns nothing (0 turns, $0). The first attempt of this run hit that, so the bench now creates `origin/HEAD` and flags empty runs as errors.
+
+Caveats as above: small synthetic cases written by the omni-team author, one model, three runs.
 
 ## Adding a case
 

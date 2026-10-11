@@ -1,0 +1,16 @@
+id: ts-files
+language: typescript
+request: "Let signed-in users edit their profile (PATCH /me) and download their own uploaded files (GET /files?name=...)."
+defects:
+  - id: D1
+    file: src/routes.ts
+    lines: [18, 19]
+    severity: critical
+    summary: "Mass assignment: the whole request body is copied onto the user, so a member can set role=admin or emailVerified=true."
+    keywords: ["mass assignment", "mass-assignment", "role", "admin", "allowlist", "allow-list", "privilege"]
+  - id: D2
+    file: src/routes.ts
+    lines: [24, 26]
+    severity: critical
+    summary: "Path traversal: name=../<otherUser>/x or ../../etc/passwd escapes the user's upload folder."
+    keywords: ["traversal", "../", "..", "escape", "normalize"]

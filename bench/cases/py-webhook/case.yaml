@@ -1,0 +1,16 @@
+id: py-webhook
+language: python
+request: "Verify incoming payment webhooks, and let merchants send a test event to their callback URL from the dashboard."
+defects:
+  - id: D1
+    file: app/payments.py
+    lines: [37, 39]
+    severity: critical
+    summary: "Server-side request to any merchant-typed URL with the response body echoed back (full-read SSRF: internal services, cloud metadata)."
+    keywords: ["SSRF", "server-side request", "metadata", "169.254", "internal", "allowlist", "allow-list"]
+  - id: D2
+    file: app/payments.py
+    lines: [26, 26]
+    severity: warning
+    summary: "Signature compared with != instead of hmac.compare_digest (timing side channel)."
+    keywords: ["compare_digest", "timing", "constant-time", "constant time"]

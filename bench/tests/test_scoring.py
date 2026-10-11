@@ -88,6 +88,17 @@ class CasesTest(unittest.TestCase):
             self.assertFalse((repo / "case.yaml").exists())
             status = subprocess.run(["git", "status", "--porcelain"], cwd=repo, capture_output=True, text=True).stdout
             self.assertIn("app/db.py", status)
+            diff = subprocess.run(["git", "diff", "--name-only", "--merge-base", "origin/HEAD"], cwd=repo,
+                                  capture_output=True, text=True, check=True).stdout
+            self.assertEqual(diff.split(), ["app/db.py"], "diff against origin/HEAD works, like a real clone")
+
+    def test_new_files_show_in_git_diff(self):
+        import subprocess
+        case = load_cases(["ts-clean-feature"])[0]
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = materialize(case, Path(tmp))
+            diff = subprocess.run(["git", "diff", "--name-only"], cwd=repo, capture_output=True, text=True).stdout
+            self.assertIn("src/format.test.ts", diff.split())
 
 
 if __name__ == "__main__":

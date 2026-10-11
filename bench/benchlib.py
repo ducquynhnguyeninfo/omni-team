@@ -94,13 +94,19 @@ def load_cases(names: Optional[List[str]] = None) -> List[Case]:
 
 
 def materialize(case: Case, workdir: Path) -> Path:
-    """Fresh git repo: base committed, change applied as uncommitted work. No answer key inside."""
+    """Fresh git repo: base committed, change applied as uncommitted work. No answer key inside.
+
+    Like a real clone, `origin/HEAD` points at the base commit (reviewers such as `/security-review`
+    diff against it), and new files are intent-to-add so `git diff` shows them to every contender.
+    """
     repo = workdir / case.id
     shutil.copytree(case.root / "base", repo)
     subprocess.run(["git", "init", "-q", "-b", "main"], cwd=repo, check=True)
     subprocess.run(["git", *GIT_ENV, "add", "-A"], cwd=repo, check=True)
     subprocess.run(["git", *GIT_ENV, "commit", "-qm", "base"], cwd=repo, check=True)
+    subprocess.run(["git", "update-ref", "refs/remotes/origin/HEAD", "HEAD"], cwd=repo, check=True)
     shutil.copytree(case.root / "change", repo, dirs_exist_ok=True)
+    subprocess.run(["git", *GIT_ENV, "add", "-N", "."], cwd=repo, check=True)
     return repo
 
 
@@ -302,5 +308,9 @@ def run_one(contender: Contender, case: Case, run: int, workdir: Path, timeout_s
     result.ok = not payload.get("is_error", False) and done.returncode == 0
     if not result.ok:
         result.error = f"engine reported an error: {result.text[:300]}"
+    elif result.turns == 0 or not result.text.strip():
+        # e.g. a slash command handled locally without reaching the model
+        result.ok = False
+        result.error = f"empty run (turns={result.turns}, local_command={payload.get('local_command')})"
     score(case, result)
     return result

@@ -1,0 +1,4 @@
+id: ts-clean-notes
+language: typescript
+request: "Add GET and DELETE /notes/:id for the signed-in owner of the note."
+defects: []
