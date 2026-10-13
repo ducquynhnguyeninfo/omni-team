@@ -1,6 +1,7 @@
 ---
 name: frontend-design
-description: Guidance for distinctive, intentional visual design when building new UI or reshaping an existing one. Helps with aesthetic direction, typography, and making choices that don't read as templated defaults.
+# Modified by omni-team: description narrowed to marketing-facing pages; body unchanged (see UPSTREAM.md).
+description: Distinctive, intentional visual design for marketing-facing web pages — landing pages, product and campaign sites, brand, portfolio and event pages — where a memorable visual identity is the goal. Helps with aesthetic direction, typography, layout and copy that don't read as templated defaults. Not for screens inside a web application (dashboards, tables, forms, settings, admin panels) — those must stay consistent with the app's design system; use a web-app UI skill (e.g. evon ui-ux) or the project's existing components instead.
 license: Complete terms in LICENSE.txt
 ---
 

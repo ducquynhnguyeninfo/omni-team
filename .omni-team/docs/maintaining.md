@@ -129,3 +129,11 @@ Selected practices from other agent toolkits (superpowers, gstack, Claude Code's
 | `security-engineer`: explicit non-findings (trusted config inputs, fields of authenticated messages, robustness-only defects → `code-reviewer`) and "report problems only" | fewer judgement-call extras; recall unchanged on the security bench (see `bench/README.md`) |
 | Library skill `frontend-design` (Apache-2.0, upstream anthropics/skills, pinned in `skills/frontend-design/UPSTREAM.md`) | installed with the other skills; `--skills` can deselect it |
 | Third-party skills may ship `LICENSE`, `LICENSE.txt` or `LICENSE.md` | — |
+
+## Compatibility notes (v2.9 → v2.10)
+
+| Change | Impact |
+|---|---|
+| `smoke-tester` step 5 **Layout probe** (web UI): `tools/ui-probe.mjs` renders the changed screens at 375/768/1280/1440 plus a width sweep and reports horizontal scroll, clipped text, wrapped button labels, crowded targets under 24 px (WCAG 2.2 SC 2.5.8 with its spacing exception), contrast below WCAG AA, broken images, missing `alt`, unnamed controls; `tools/ui-probe-page.js` is the same measurement for any browser tool's evaluate | new evidence section *4. Layout probe* in the smoke report; confirmed findings on changed UI → `REQUEST_CHANGES`. The runner needs Node 18+ and Playwright outside the project (exit 3 prints how) or an installed Chrome/Edge; without either the step is skipped and noted |
+| `tools/` added to `RUNTIME_SET` | shipped by the slim install |
+| `frontend-design`: frontmatter `description` narrowed to marketing-facing pages (body unchanged; notice in the file and `UPSTREAM.md`); `AGENTS.md` §5 picks the design skill by surface — app screens → a web-app UI skill, evon `ui-ux` recommended | re-apply the description change when updating the skill from upstream |

@@ -43,6 +43,7 @@ RUNTIME_SET: Tuple[str, ...] = (
     "defaults.yaml", "orchestrator.py",
     "lib/__init__.py", "lib/artifacts.py", "lib/checks.py", "lib/diffscope.py", "lib/pipeline.py", "lib/profile.py",
     "lib/roles.py", "lib/routing.py", "lib/runner.py", "lib/state.py",
+    "tools/ui-probe.mjs", "tools/ui-probe-page.js",
     "team/",
     "docs/workflow.md", "docs/roles.md", "docs/profile.md", "docs/routing.md", "docs/adapters.md",
     "docs/workspace.md",

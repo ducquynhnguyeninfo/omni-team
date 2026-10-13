@@ -92,7 +92,8 @@ wireframe parity, feature flags …). -->
 
 <!-- How to start the stack (command), test accounts (never real secrets —
 point to where they live), wireframe/prototype location, whether the
-smoke-tester may start services itself. -->
+smoke-tester may start services itself, and for the layout probe: other
+widths, pages to skip, known pre-existing findings to ignore. -->
 
 (none)
 

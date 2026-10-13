@@ -19,13 +19,15 @@
 ├── skills/                       workflow entry points (SKILL.md works in Claude Code and Codex)
 │   ├── omni-setup/  omni-task/  omni-plan/  omni-review/  omni-ship/  ba/  architect/  pm/  release/
 │   ├── drawio-skill/             library skill (MIT, vendored with LICENSE + UPSTREAM.md)
-│   └── frontend-design/          library skill (Apache-2.0, vendored with LICENSE.txt + UPSTREAM.md)
+│   └── frontend-design/          library skill (Apache-2.0, vendored with LICENSE.txt + UPSTREAM.md; description narrowed)
 │
 ├── project/                      ← the ONLY folder a host project edits
 │   ├── profile.yaml              structured facts (auto by default)
 │   └── conventions.md            rulebook, one section per role
 │
 ├── examples/                     sample project/ folders: web-fastapi-nextjs, go-cli, python-library
+│
+├── tools/                        ui-probe.mjs (browser runner) + ui-probe-page.js (in-page checks) for smoke-tester
 │
 ├── install.py                    adapters: .claude/, .codex/, .agents/, pointer blocks (stdlib)
 ├── orchestrator.py               headless runner: classify / run / run-gate / status / prompt
@@ -55,6 +57,7 @@ Generated in the **host project root** by `install.py` (build output — edit th
 ├── VERSION  requirements.txt  .gitignore  .vendor.json (manifest: version, source, files)
 ├── defaults.yaml  orchestrator.py
 ├── lib/                              orchestrator modules only (no adapters.py / vendor.py)
+├── tools/                            UI layout probe used by smoke-tester
 ├── team/                             roles + protocol (orchestrator prompts, fallback invocation)
 ├── docs/                             workflow, roles, profile, routing, adapters
 ├── skills/                           only for tools without native skills (gemini, agents-md)
