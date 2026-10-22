@@ -51,7 +51,7 @@ Reports land in `.omni-team/runs/<task-id>/` — one file per role, plus `_summa
 ### Headless / CI
 
 ```bash
-pip install -r .omni-team/requirements.txt         # PyYAML, orchestrator only
+python3 .omni-team/orchestrator.py setup [--ui-probe]              # toolset into .omni-team/.venv (once; CI: pip install -r .omni-team/requirements.txt)
 python3 .omni-team/orchestrator.py classify --task T-42            # which gates, no AI calls
 python3 .omni-team/orchestrator.py run --task T-42 --engine codex  # checks, then stages (parallel inside)
 python3 .omni-team/orchestrator.py status --task T-42

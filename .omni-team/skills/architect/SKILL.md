@@ -11,7 +11,7 @@ The request is in `$ARGUMENTS` (or the user's message). Mode: **DESIGN** when a 
 2. Invoke the **`architect`** role as a sub-agent (Claude Code: `subagent_type: "architect"`; Codex: the `architect` custom agent; otherwise a sub-agent told to read `.omni-team/team/_protocol.md` and `.omni-team/team/architect.md`). Tell it the mode.
 3. Save verbatim:
    - DESIGN → the project's ADR folder from `conventions.md` → `Architecture` (else `docs/adr/` if it exists) as `NNNN-<slug>.md` with the next number — **ask the user before creating files outside `.omni-team/`**; otherwise `.omni-team/runs/<id>/adr.md`. The ADR status stays *Proposed* until a human accepts it.
-   - REVIEW → append to `.omni-team/runs/<id>/architect.md`.
+   - REVIEW → `python3 .omni-team/orchestrator.py record architect --task <id> < report.md`.
 4. Report: the decision (or verdict), trade-offs accepted, decisions the user must confirm. After an accepted ADR, the next step is `omni-plan <id>`.
 
 Never write code; never commit.

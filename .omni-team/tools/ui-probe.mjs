@@ -6,14 +6,13 @@
 //
 //   node ui-probe.mjs <url> [--widths 375,768,1280,1440] [--height 900] [--out <dir>]
 //                    [--sweep [1440,375,20]] [--wait 600] [--min-target 24] [--dark] [--pw <dir>]
+//   node ui-probe.mjs --check        # can a browser start? prints which one
 //
-// Needs Node 18+ and the `playwright` package with Chromium, looked up in --pw, the current
-// directory, then this folder. Never install it into the project; use a temporary prefix:
-//   npm i --prefix "$TMPDIR/omni-probe" playwright
-//   npx --prefix "$TMPDIR/omni-probe" playwright install chromium
-//   node ui-probe.mjs <url> --pw "$TMPDIR/omni-probe"
+// Needs Node 18+ and the `playwright` package, looked up in --pw, .omni-team/.venv/node (set up
+// by `orchestrator.py setup --ui-probe`), the current directory, then this folder. It starts
+// Playwright's Chromium, else an installed Chrome or Edge. Never install it into the project.
 //
-// Exit codes: 0 nothing found · 1 findings or errors · 2 usage · 3 browser library missing · 4 page did not load
+// Exit codes: 0 nothing found · 1 findings or errors · 2 usage · 3 browser library or browser missing · 4 page did not load
 
 import { createRequire } from "node:module";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -26,9 +25,8 @@ const pageProbe = readFileSync(join(here, "ui-probe-page.js"), "utf8").trim();
 const sweepChecks = ["horizontal_scroll", "clipped_text", "wrapped_label"];
 const maxErrors = 20;
 const installHint = [
-  "Playwright with Chromium is needed. Install it outside the project, then pass --pw:",
-  '  npm i --prefix "$TMPDIR/omni-probe" playwright',
-  '  npx --prefix "$TMPDIR/omni-probe" playwright install chromium',
+  "Playwright and a browser are needed. Set them up inside .omni-team/.venv (git-ignored):",
+  "  python3 .omni-team/orchestrator.py setup --ui-probe",
   "Or run ui-probe-page.js through your browser tool's evaluate at each width instead.",
 ].join("\n");
 
@@ -45,7 +43,7 @@ function numbers(value, flag) {
 
 function parseArgs(argv) {
   const options = { url: "", widths: [375, 768, 1280, 1440], height: 900, out: "", sweep: null,
-    waitMs: 600, minTarget: 24, dark: false, pw: "" };
+    waitMs: 600, minTarget: 24, dark: false, pw: "", check: false };
   const rest = [...argv];
   while (rest.length) {
     const arg = rest.shift();
@@ -56,13 +54,14 @@ function parseArgs(argv) {
     else if (arg === "--min-target") [options.minTarget] = numbers(rest.shift(), arg);
     else if (arg === "--pw") options.pw = rest.shift();
     else if (arg === "--dark") options.dark = true;
+    else if (arg === "--check") options.check = true;
     else if (arg === "--sweep") {
       const [from, to, step = 20] = /^\d+,\d+(,\d+)?$/.test(rest[0] ?? "") ? numbers(rest.shift(), arg) : [1440, 375];
       options.sweep = { from: Math.max(from, to), to: Math.min(from, to), step };
     } else if (arg.startsWith("--")) usage(`unknown option ${arg}`);
     else options.url = arg;
   }
-  if (!/^(https?|file):/.test(options.url)) usage(`a http(s) or file URL is required, got "${options.url}"`);
+  if (!options.check && !/^(https?|file):/.test(options.url)) usage(`a http(s) or file URL is required, got "${options.url}"`);
   options.out = resolve(options.out || join(tmpdir(), `omni-probe-${Date.now()}`));
   return options;
 }
@@ -83,7 +82,9 @@ async function launch(playwright) {
   const failures = [];
   for (const channel of [undefined, "chrome", "msedge"]) {
     try {
-      return await playwright.chromium.launch(channel ? { channel } : {});
+      const browser = await playwright.chromium.launch(channel ? { channel } : {});
+      browser.omniChannel = channel || "chromium";
+      return browser;
     } catch (err) {
       failures.push(`${channel || "chromium"}: ${String(err.message).split("\n")[0]}`);
     }
@@ -178,12 +179,17 @@ function report(options, results, ranges, errors) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
-  const playwright = loadPlaywright([options.pw, process.cwd(), here]);
+  const playwright = loadPlaywright([options.pw, join(here, "..", ".venv", "node"), process.cwd(), here]);
   if (!playwright) {
     console.error(installHint);
     process.exit(3);
   }
   const browser = await launch(playwright);
+  if (options.check) {
+    console.log(`browser ready: ${browser.omniChannel} ${browser.version()}`);
+    await browser.close();
+    process.exit(0);
+  }
   mkdirSync(options.out, { recursive: true });
   const context = await browser.newContext({ colorScheme: options.dark ? "dark" : "light" });
   const page = await context.newPage();

@@ -28,6 +28,8 @@ You decide — and guard — the shape of the system. `tech-lead` plans one work
 - Profile `components`; build manifests, container/IaC files and CI to see the real topology.
 - For DESIGN: the spec (from `ba` or the caller) and any `tech-lead` notes. For REVIEW: the diff scope the caller passes.
 
+Where code and documents live — a single repository or a workspace with product repositories in their own folders, and the folder names — is the **owner's** decision. Follow what `conventions.md` → `Architecture` or the profile `components` record. When they record nothing and the decision is open (a new project, or a change that adds a repository), do not choose silently: present the options and end with `NEEDS_CLARIFICATION`, or, if the caller said to proceed on defaults, list it first under *Follow-up decisions* to confirm.
+
 ## Mode: DESIGN — Architecture Decision Record
 
 Use before a change that adds a component or store, an external integration or new major dependency, changes a cross-component contract or data ownership, alters deployment topology, or is large enough that its structure is not obvious.

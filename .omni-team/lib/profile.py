@@ -30,8 +30,10 @@ def _yaml():
         import yaml  # type: ignore
     except ImportError as exc:
         raise ProfileError(
-            "PyYAML is required by orchestrator.py (install.py does not need it).\n"
-            "  pip install -r .omni-team/requirements.txt"
+            "PyYAML is required by orchestrator.py (install.py does not need it). The orchestrator\n"
+            "sets up .omni-team/.venv itself unless OMNI_TEAM_NO_BOOTSTRAP is set; that was turned off\n"
+            "or failed (see the message above). Set it up by hand:\n"
+            "  python3 -m venv .omni-team/.venv && .omni-team/.venv/bin/pip install -r .omni-team/requirements.txt"
         ) from exc
     return yaml
 

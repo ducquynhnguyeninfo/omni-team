@@ -46,6 +46,7 @@ Triangulate the real state before reporting anything as done:
 
 - `git log --oneline -20`, `git status`, recent merges/tags.
 - Gate reports and `_summary.md` / `_state.json` under `.omni-team/runs/<task-id>/` — which gates ran, which verdicts (role files hold an index plus the latest report; skip `_archive/`).
+- Activity per day across tasks for the reporting period: `python3 .omni-team/orchestrator.py status --since <YYYY-MM-DD>`; each task's `_journal.md` says what is open, next and waiting on whom.
 - Open `TODO` / `FIXME` / deferred items in the touched area; test / CI signal if available.
 - Existing planning artifacts (previous charters, roadmaps, status reports, RAID logs) where `conventions.md` says they live.
 
@@ -162,8 +163,9 @@ Input: `.omni-team/runs/<task-id>/tech-lead.md` + the spec (+ optional `qa-lead`
 <T3 → T5 → T8>, likely <N> days; due dates below are validated against it.
 ### Decisions needed
 
-<!-- file: tasks/1.<slug>.md -->
+<!-- file: tasks/1.<ticket-id>.md -->
 # T1 — <title>
+- Task id: `<ticket-id>` (valid id: letters, digits, `.` `_` `-`) — implemented and reviewed in `runs/<ticket-id>/`, parent `<task-id>`
 - Owner (role → person): ...      Priority: ...      Status: Backlog → Ready → In progress → In review → Done
 - Estimate (O/L/P, confirmed by the doer): ...      Due (validated vs capacity + critical path): ...
 - Maps to: <requirement ids>      Depends on: ...      Blocks: ...

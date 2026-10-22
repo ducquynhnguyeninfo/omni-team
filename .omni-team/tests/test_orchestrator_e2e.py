@@ -120,6 +120,27 @@ class OrchestratorE2ETest(unittest.TestCase):
                                cwd=self.root, input="", capture_output=True, text=True)
         self.assertEqual(empty.returncode, 2)
 
+    def test_journal_and_activity_by_day(self):
+        def orch(*args, stdin=""):
+            done = subprocess.run([sys.executable, ".omni-team/orchestrator.py", *args],
+                                  cwd=self.root, input=stdin, capture_output=True, text=True)
+            return done.returncode, done.stdout + done.stderr
+
+        self.assertEqual(orch("journal", "--task", "T1", stdin="**Done**: parser\n**Next**: tests")[0], 0)
+        self.assertEqual(orch("record", "code-reviewer", "--task", "T2", stdin="VERDICT: APPROVE — clean")[0], 0)
+        journal = (self.root / ".omni-team/runs/T1/_journal.md").read_text()
+        self.assertTrue(journal.startswith("# Journal") and "## Session " in journal, journal)
+
+        code, out = orch("status", "--since", "today")
+        self.assertEqual(code, 0, out)
+        self.assertIn("journal — Done: parser", out)
+        self.assertIn("code-reviewer APPROVE — clean", out)
+        self.assertNotIn("code-reviewer", orch("status", "--since", "today", "--task", "T1")[1])
+        self.assertIn("no activity since", orch("status", "--since", "2999-01-01")[1])
+        self.assertEqual(orch("status", "--since", "last week")[0], 2)
+        self.assertEqual(orch("status")[0], 2, "status needs --task or --since")
+        self.assertEqual(orch("journal", "--task", "T1", stdin=" ")[0], 2)
+
     def test_failing_checks_stop_before_any_ai_gate(self):
         self.write("src/app.py", [f"v{i} = {i}" for i in range(30)])
         self.write_profile(checks=[f'"{sys.executable}" -c "import sys; sys.exit(3)"'])

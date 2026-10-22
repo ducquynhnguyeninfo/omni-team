@@ -45,9 +45,13 @@ Gate verdicts: `APPROVE` · `REQUEST_CHANGES` · `BLOCK` · `NOT_APPLICABLE` · 
 
 Having `.omni-team/` in the repo is enough to start: every `auto` value is inferred at run time. It is put there — and native sub-agents and skills are registered — by the omni-team installer — `python3 <omni-team checkout>/.omni-team/install.py --dir <project>` (the checkout path is `source` in `.omni-team/.vendor.json`); `install.py upgrade --dir <project>` updates it later. For sharper reviews run the **`omni-setup`** skill once to draft `project/profile.yaml` and `project/conventions.md`.
 
+**Toolset:** `python3 .omni-team/orchestrator.py setup [--ui-probe]` (step 1 of `omni-setup`) installs what `.omni-team/` scripts need into `.omni-team/.venv` (git-ignored, kept on upgrade): the Python environment every orchestrator command then runs under, and with `--ui-probe` Playwright and a browser for the layout probe. Without it, the first orchestrator command creates the Python part itself when PyYAML is missing. **Run `.omni-team/` commands yourself** — never hand the user a command you can run. Only when one fails for a reason you cannot fix (no network, no Python, a permission you lack) report it with the error output and the command.
+
 ### 1. Classify
 
 - Choose a **task id** per work item: the ticket / spec id, or a short slug of the request (`fix-login-redirect`). Not the branch name — one long-lived branch often carries several work items. Artifacts go to `runs/<task-id>/` (the profile's `artifacts_dir`).
+- **Standing decisions go into `project/`.** An owner decision that binds later work — repository and folder layout, stack, hosting, a rule for all code — is written into `project/conventions.md` (or `profile.yaml`) when it is made, not only into the chat or a task's artifacts: a later session and every role read `project/`, nobody rereads old conversations. A `decisions.md` in `runs/<id>/` binds that task only.
+- **After `pm` TASKING, every ticket is its own work item.** The planned item becomes an *epic*: its folder keeps the spec, ADR, `tech-lead.md`, `pm.md` and `tasks/`, and nothing else. Each ticket is implemented, checked and reviewed under its own id (`--task <ticket-id>` → `runs/<ticket-id>/`), with its ticket file `runs/<epic-id>/tasks/<n>.<ticket-id>.md` as the acceptance source (`--spec`). A QA pass over a group of tickets gets its own id too (e.g. `qa-g1`). Never put several tickets' reports into one folder: budgets, approvals and `status` are per task id.
 - **Trivial** — ≲15 changed lines, docs-only, or a rename with no behaviour change, and no security/data area touched: implement, run checks, report. No gates.
 - Otherwise continue.
 
@@ -61,9 +65,9 @@ Invoke `architect` in DESIGN mode **before planning** when the work adds or remo
 
 ### 4. Plan
 
-Invoke `tech-lead` with the request or spec. Append its report verbatim to `runs/<task-id>/tech-lead.md`. If it ends `NEEDS_CLARIFICATION`, ask the user its open questions before writing code. Skip planning only for small, well-understood fixes.
+Invoke `tech-lead` with the request or spec. Persist its report with `python3 .omni-team/orchestrator.py record tech-lead --task <id> < report.md`. If it ends `NEEDS_CLARIFICATION`, ask the user its open questions before writing code. Skip planning only for small, well-understood fixes.
 
-When several people (or a BA/PO) deliver the work, follow with `pm` in **TASKING** mode: it turns the tech-lead plan into MECE, capacity-allocated tickets under `runs/<task-id>/tasks/`. `pm` is never a review gate; it is also invoked on demand (`/pm` skill) for charters, roadmaps, status/weekly reports, RAID, prioritisation and retros — see `skills/pm/SKILL.md`.
+When several people (or a BA/PO) deliver the work, follow with `pm` in **TASKING** mode: it turns the tech-lead plan into MECE, capacity-allocated tickets under `runs/<task-id>/tasks/`, each named by its own task id (see §1). `pm` is never a review gate; it is also invoked on demand (`/pm` skill) for charters, roadmaps, status/weekly reports, RAID, prioritisation and retros — see `skills/pm/SKILL.md`.
 
 ### 5. Implement
 
@@ -73,15 +77,16 @@ Follow the plan phase by phase, mirroring the reference pattern it names. Respec
 - **Bug fix → reproduce first.** Write the test that reproduces the bug, run it and see it fail for the expected reason, then fix and see it pass (`test-engineer` TE-4 asks for exactly this test). If no test can reproduce it, say why in the summary.
 - **Debug from evidence.** Reproduce, read the actual error, trace back to the first wrong value, then change code for one stated hypothesis at a time — no stacked speculative fixes. After **3** failed fix attempts on the same problem, stop and report what you tried and learned (the same budget as a gate).
 - **Claims need evidence.** Before writing "fixed", "done" or "passes", run the command that proves it in this session and quote the decisive output line. Never report a check you did not run; say what you skipped.
+- **Keep the task journal.** When a working session ends — you stop for the day, hand over, or your context is about to be reset — append one entry: `python3 .omni-team/orchestrator.py journal --task <id> < session.md` with **Done**, **Open**, **Next** and **Waiting on** (facts: paths, finding ids, decisions — not a recap of gate reports). Resuming a task, read `runs/<task-id>/_journal.md` and `orchestrator.py status --task <id>` first. Without Python: append `## Session <ISO time>` and the entry to that file by hand. The journal rotates like the role files, so it never needs summarising; `status --since yesterday` lists every task's activity by day.
 - **UI: pick the design skill by surface.** Marketing-facing pages (landing, product, campaign, brand, portfolio, event) → `frontend-design`, which aims for a distinctive identity per page. Screens inside a web app (dashboards, tables, forms, settings, admin) → a web-app UI skill that builds from the project's components and tokens and checks the rendered page; **evon `ui-ux`** is the recommended one (Claude Code: `/plugin marketplace add evondev/evondevKit`, then `/plugin install evon@evondevkit`). Without one, follow the app's existing design system — not `frontend-design`. `conventions.md` → `All roles` may pin the choice. `smoke-tester` measures the rendered result either way.
 
 Run the project's checks — **Gate 0** — until they pass: `python3 .omni-team/orchestrator.py checks --task <id>` runs the profile's `checks` (or the touched components' `lint` / `typecheck` / `test` commands) and logs to `runs/<id>/_checks.md`. Without Python, run those commands yourself (or what the repo's README/CI uses). Never request review on red checks — the headless `run` refuses to (exit 7).
 
 ### 6. Review (stages run in order; gates inside a stage are independent)
 
-1. **Route.** Preferred: `python3 .omni-team/orchestrator.py classify --task <id>` prints the gate list (needs Python 3.8+ and PyYAML). Without it, apply the rules yourself: evaluate each signal in `defaults.yaml` (merged with overrides in `project/profile.yaml`) against the diff, take the **first** matching `routing.base` rule, append every matching `routing.add_if` rule, group by `routing.stages`. Say which rules matched.
+1. **Route.** Preferred: `python3 .omni-team/orchestrator.py classify --task <id>` prints the gate list (needs Python 3.8+). Without it, apply the rules yourself: evaluate each signal in `defaults.yaml` (merged with overrides in `project/profile.yaml`) against the diff, take the **first** matching `routing.base` rule, append every matching `routing.add_if` rule, group by `routing.stages`. Say which rules matched.
 2. **Invoke** each gate as a **fresh** sub-agent (see "Invoking a role"), **stage by stage**. Gates in the same stage do not read each other's reports, so launch them together (in parallel when your tool allows). A stage starts only after every gate of the previous stage has passed — later stages read earlier reports (e.g. `qa-lead` checks earlier findings were fixed).
-3. **Persist** each report verbatim: `python3 .omni-team/orchestrator.py record <role> --task <id> < report.md` — it appends with a timestamp heading, rotates the file into `_archive/` beyond `orchestrator.artifact_max_kb` (index + latest report stay) and records the verdict in `_state.json`. Without Python: append by hand; when the file passes ~40 KB, move the older reports to `runs/<task-id>/_archive/<role>.md` and keep a one-line-per-report index plus the latest report.
+3. **Persist** each report verbatim: `python3 .omni-team/orchestrator.py record <role> --task <id> < report.md` — it appends with a timestamp heading, rotates the file into `_archive/` beyond `orchestrator.artifact_max_kb` (index + latest report stay) and records the verdict in `_state.json`. **Always persist through `record` when Python is available** — this goes for every role, `tech-lead`, `pm`, `ba` and `release-manager` included. A role file written by hand is invisible to state, budgets, approval re-opening and `status --since`; `status --task` flags it, and the next `record` moves the hand-written text verbatim to `_archive/`. Your `### Actions taken by implementer` notes go under the latest report, after recording. Only without Python: append by hand under `## Invocation <ISO time>`; when the file passes ~40 KB, move the older reports to `runs/<task-id>/_archive/<role>.md` and keep a one-line-per-report index plus the latest report.
 4. **React:**
 
 | Verdict | Do |
@@ -102,7 +107,7 @@ If you disagree with a finding, do not silently skip it: record the rationale in
 
 ### 8. Hand off — the human gate
 
-Write `runs/<task-id>/_summary.md`: gates → verdicts, fixes made, deferred items, open questions. Tell the user the change is ready for **their** review (the profile's `human_gate`). Never commit, push, merge, tag or release on the team's behalf.
+Write `runs/<task-id>/_summary.md`: gates → verdicts, fixes made, deferred items, open questions — and a last journal session. Tell the user the change is ready for **their** review (the profile's `human_gate`). Never commit, push, merge, tag or release on the team's behalf.
 
 ### 9. Release (when the humans cut a release)
 
@@ -117,7 +122,7 @@ If components are separate git repositories inside this workspace (see [docs/wor
 Whatever the tool, the sub-agent must get: (a) the role's instructions, (b) the shared protocol, (c) an **invocation block**:
 
 ```
-Task id: <id>            Acceptance source: <spec path | runs/<id>/tech-lead.md | the request text>
+Task id: <id>            Acceptance source: <spec path | ticket file | runs/<id>/tech-lead.md | the request text>
 Artifacts directory: .omni-team/runs/<id>/      Attempt: <n> (previous verdict: <v>)
 Diff: base <ref>, working tree included          Components touched: <names>
 Changed files: <list>
@@ -143,7 +148,6 @@ Focus / notes from the implementer: <optional>
 ### Fully headless pipeline (CI or terminal)
 
 ```
-pip install -r .omni-team/requirements.txt
 python3 .omni-team/orchestrator.py run --task <id> [--engine codex] [--spec path] [--request "..."]
 ```
 

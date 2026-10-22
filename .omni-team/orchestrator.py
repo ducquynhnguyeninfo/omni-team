@@ -7,8 +7,11 @@ orchestrator.py — headless runner for the omni-team review gates.
     python3 .omni-team/orchestrator.py run      --task T-1        # Gate 0, then the routed gates stage by stage
     python3 .omni-team/orchestrator.py run-gate code-reviewer --task T-1
     python3 .omni-team/orchestrator.py status   --task T-1
+    python3 .omni-team/orchestrator.py status   --since yesterday     # activity of every task, by day
     python3 .omni-team/orchestrator.py prompt   code-reviewer --task T-1   # print the full prompt
     python3 .omni-team/orchestrator.py record   code-reviewer --task T-1 < report.md   # persist a sub-agent's report
+    python3 .omni-team/orchestrator.py journal  --task T-1 < session.md    # append to the task journal
+    python3 .omni-team/orchestrator.py setup [--ui-probe]   # install the toolset into .omni-team/.venv
 
 Common flags: --engine claude|codex|<custom>, --base <ref>, --committed-only,
 --spec <path>, --request "<text>", --profile <path>, --dry-run.
@@ -20,7 +23,8 @@ exhausted · 5 unparseable verdict · 6 needs a human (clarification / blocked e
 7 project checks (Gate 0) failed.
 
 The orchestrator NEVER commits, pushes or merges. It stops at the human gate.
-Requires PyYAML (pip install -r .omni-team/requirements.txt).
+Runs under .omni-team/.venv when it exists (lib/bootstrap.py), creating it on first use when
+PyYAML is missing; OMNI_TEAM_NO_BOOTSTRAP=1 keeps the current interpreter.
 """
 
 from __future__ import annotations
@@ -36,9 +40,9 @@ FRAMEWORK_ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = FRAMEWORK_ROOT.parent
 sys.path.insert(0, str(FRAMEWORK_ROOT))
 
-from lib import artifacts, checks, diffscope, pipeline, profile  # noqa: E402
+from lib import activity, artifacts, bootstrap, checks, diffscope, pipeline, profile  # noqa: E402
 from lib.pipeline import EXIT_CHECKS, EXIT_CONFIG, EXIT_PAUSED, EXIT_READY  # noqa: E402
-from lib.roles import RoleError, load_protocol, role_by_name  # noqa: E402
+from lib.roles import RoleError, load_protocol, load_roles, role_by_name  # noqa: E402
 from lib.routing import RoutingError, plan_stages, select_gates  # noqa: E402
 from lib.runner import EngineError, build_prompt, parse_verdict, run_gate  # noqa: E402
 from lib.state import GateState, RunState  # noqa: E402
@@ -62,8 +66,8 @@ class Context:
         self.args = args
         self.tree = profile.load(args.profile)
         self.orch: Dict[str, Any] = self.tree.get("orchestrator", {})
-        self.task_id = args.task
-        if not TASK_ID_RE.match(self.task_id):
+        self.task_id = args.task or ""     # only `status --since` runs without a task
+        if self.task_id and not TASK_ID_RE.match(self.task_id):
             raise profile.ProfileError(f"task id '{self.task_id}' may only contain letters, digits, . _ -")
         self.artifacts = PROJECT_ROOT / str(self.tree["artifacts_dir"]).format(task_id=self.task_id)
         self.state_path = self.artifacts / "_state.json"
@@ -354,6 +358,14 @@ def cmd_run_gate(ctx: Context) -> int:
 
 
 def cmd_status(ctx: Context) -> int:
+    if ctx.args.since:
+        return cmd_activity(ctx)
+    if not ctx.task_id:
+        raise EngineError("status needs --task <id>, or --since <date> for the activity of every task")
+    roles = {r.name for r in load_roles()}
+    for name in activity.unrecorded(ctx.artifacts, roles.__contains__) if ctx.artifacts.is_dir() else []:
+        print(f"⚠ {ctx.rel(ctx.artifacts / name)}: written by hand, not through `record`/`journal` — "
+              "invisible to state, budgets and `status --since`; the next record moves it to _archive/")
     if not ctx.state_path.exists():
         print(f"no state yet at {ctx.rel(ctx.state_path)}")
         return EXIT_PAUSED
@@ -366,6 +378,26 @@ def cmd_status(ctx: Context) -> int:
     return EXIT_READY if state.phase == "ready_for_human" else EXIT_PAUSED
 
 
+def cmd_activity(ctx: Context) -> int:
+    try:
+        print(activity.report(PROJECT_ROOT, str(ctx.tree["artifacts_dir"]), ctx.args.since, ctx.task_id))
+    except ValueError as exc:
+        raise profile.ProfileError(str(exc)) from exc
+    return EXIT_READY
+
+
+def cmd_journal(ctx: Context) -> int:
+    """Append one working session (done / open / next) to the task journal, with rotation."""
+    text = Path(ctx.args.file).read_text(encoding="utf-8") if ctx.args.file else sys.stdin.read()
+    if not text.strip():
+        raise EngineError("empty journal entry: pass --file <path> or pipe the entry on stdin")
+    path = ctx.artifacts / f"{artifacts.JOURNAL}.md"
+    moved = artifacts.append(path, artifacts.format_session(dt.datetime.now(), text),
+                             int(ctx.orch.get("artifact_max_kb", 40)))
+    print(f"journal → {ctx.rel(path)}" + (f"  ({artifacts.MOVED_NOTE[moved]})" if moved else ""))
+    return EXIT_READY
+
+
 def cmd_record(ctx: Context) -> int:
     """Persist a report produced outside the orchestrator (e.g. a native sub-agent) with rotation + state."""
     source = Path(ctx.args.file) if ctx.args.file else None
@@ -375,9 +407,9 @@ def cmd_record(ctx: Context) -> int:
     role = role_by_name(ctx.args.role)
     verdict = parse_verdict(report)
     path = ctx.artifacts / f"{role.name}.md"
-    rotated = artifacts.append(path, artifacts.format_entry(role.name, verdict, dt.datetime.now(), 0.0,
-                                                            ctx.args.engine or "manual", report),
-                               int(ctx.orch.get("artifact_max_kb", 40)))
+    moved = artifacts.append(path, artifacts.format_entry(role.name, verdict, dt.datetime.now(), 0.0,
+                                                          ctx.args.engine or "manual", report),
+                             int(ctx.orch.get("artifact_max_kb", 40)))
     state = ctx.load_state()
     gate = state.gate(role.name) or GateState(name=role.name)
     if state.gate(gate.name) is None:
@@ -386,7 +418,7 @@ def cmd_record(ctx: Context) -> int:
     if escape:
         log_escape(ctx, gate, escape)
     state.save(ctx.state_path)
-    print(f"{role.name}: {verdict} → {ctx.rel(path)}" + ("  (older reports rotated into _archive/)" if rotated else ""))
+    print(f"{role.name}: {verdict} → {ctx.rel(path)}" + (f"  ({artifacts.MOVED_NOTE[moved]})" if moved else ""))
     return EXIT_READY if code is None else code
 
 
@@ -404,8 +436,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="cmd", required=True)
 
-    def common(p: argparse.ArgumentParser) -> None:
-        p.add_argument("--task", required=True, help="work-unit id, e.g. TASK-12 (used for the artifacts folder)")
+    def common(p: argparse.ArgumentParser, task_required: bool = True) -> None:
+        p.add_argument("--task", required=task_required, help="work-unit id, e.g. TASK-12 (used for the artifacts folder)")
         p.add_argument("--profile", type=Path, help="profile path (default: .omni-team/project/profile.yaml)")
         p.add_argument("--base", help="git base ref (default: orchestrator.base_ref)")
         p.add_argument("--committed-only", action="store_true", help="ignore uncommitted / untracked changes")
@@ -419,7 +451,10 @@ def build_parser() -> argparse.ArgumentParser:
                            ("checks", "run Gate 0 (project checks) only"),
                            ("run", "Gate 0, then pending gates stage by stage"), ("status", "show state")):
         p = sub.add_parser(name, help=helptext)
-        common(p)
+        common(p, task_required=name != "status")
+        if name == "status":
+            p.add_argument("--since", type=since_arg, help="activity by day since YYYY-MM-DD, today, yesterday or <n>d "
+                                                           "(all tasks unless --task)")
         if name == "run":
             p.add_argument("--fresh", action="store_true", help="discard existing state and start over")
             p.add_argument("--skip-checks", action="store_true", help="skip Gate 0 (project checks)")
@@ -431,13 +466,27 @@ def build_parser() -> argparse.ArgumentParser:
         common(p)
         if name == "record":
             p.add_argument("--file", help="report file (default: read stdin)")
+    p = sub.add_parser("journal", help="append a working session to the task journal (stdin or --file)")
+    common(p)
+    p.add_argument("--file", help="session notes file (default: read stdin)")
+    p = sub.add_parser("setup", help="install the toolset into .omni-team/.venv (Python; --ui-probe: Playwright)")
+    p.add_argument("--ui-probe", action="store_true", help="also Playwright and a browser for tools/ui-probe.mjs")
     return parser
+
+
+def since_arg(value: str) -> str:
+    try:
+        return activity.since_date(value, dt.date.today())
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected YYYY-MM-DD, today, yesterday or <n>d, got '{value}'") from None
 
 
 def main(argv: Optional[list] = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.cmd == "setup":
+        return bootstrap.setup(FRAMEWORK_ROOT, args.ui_probe)
     dispatch = {"classify": cmd_classify, "checks": cmd_checks, "run": cmd_run, "run-gate": cmd_run_gate,
-                "status": cmd_status, "prompt": cmd_prompt, "record": cmd_record}
+                "status": cmd_status, "prompt": cmd_prompt, "record": cmd_record, "journal": cmd_journal}
     try:
         return dispatch[args.cmd](Context(args))
     except (profile.ProfileError, RoutingError, RoleError, EngineError, diffscope.GitError,
@@ -447,4 +496,5 @@ def main(argv: Optional[list] = None) -> int:
 
 
 if __name__ == "__main__":
+    bootstrap.use_venv(FRAMEWORK_ROOT, sys.argv)
     raise SystemExit(main())

@@ -11,6 +11,6 @@ Input: a request, a ticket/spec id, or a spec path (`$ARGUMENTS` or the user's m
 2. Invoke the **`tech-lead`** role as a sub-agent (see `.omni-team/AGENTS.md` §"Invoking a role") with:
    - the task id and the request text or spec path,
    - any constraints the user stated.
-3. Append the report verbatim to `.omni-team/runs/<task-id>/tech-lead.md` (create folders as needed).
+3. Persist the report with `python3 .omni-team/orchestrator.py record tech-lead --task <id> < report.md` (only without Python: append it to `.omni-team/runs/<task-id>/tech-lead.md` under `## Invocation <ISO time>`).
 4. Show the user: the acceptance criteria, the phase list, and every open question. If the verdict is `NEEDS_CLARIFICATION`, ask those questions and re-plan once answered.
 5. Do **not** start implementing unless the user asked for it (then continue with `omni-task` from step 4).

@@ -37,6 +37,16 @@ Its status reports read gate verdicts in `runs/` as evidence, so the review pipe
 
 Use the ticket/spec id when there is one (`PROJ-123`, `MP-04A`); otherwise a short kebab-case slug of the request. Allowed characters: letters, digits, `.`, `_`, `-`. The id names the artifacts folder and is how `qa-lead` finds the spec under `work_unit.spec_root`. One id per work item — not per branch: a long-lived branch that carries several items would pile their histories into one folder.
 
+**Epics and tickets.** When `pm` TASKING splits planned work into tickets, the planned item becomes an epic and each ticket a work item of its own:
+
+```
+runs/<epic-id>/              spec.md · adr.md · tech-lead.md · pm.md · tasks/_board.md · tasks/<n>.<ticket-id>.md
+runs/<ticket-id>/            that ticket's Gate 0 log, gate reports, _state.json, _journal.md, smoke/
+runs/<qa-group-id>/          a QA pass over several tickets (qa-lead, smoke-tester)
+```
+
+Run the ticket with `--task <ticket-id> --spec runs/<epic-id>/tasks/<n>.<ticket-id>.md`. Retry budgets, approvals and re-opening work per task id, so a ticket's third `REQUEST_CHANGES` must not be counted against its neighbours'.
+
 ## Trivial vs non-trivial
 
 Trivial (no plan, no gates): ≲15 changed lines, docs-only, formatting, or a pure rename — **and** nothing security-, data- or contract-related. Everything else goes through routing. When unsure, run `classify`: if it returns no gates, you are in trivial territory.
@@ -51,7 +61,7 @@ Trivial (no plan, no gates): ≲15 changed lines, docs-only, formatting, or a pu
 - **Stages, in `routing.stages` order.** Default: `[tech-lead, pm]` → `[data-reviewer, code-reviewer, test-engineer, security-engineer, perf-engineer]` → `[qa-lead]` → `[smoke-tester]`. Gates inside a stage are independent (none reads another's report) and run concurrently, up to `orchestrator.max_parallel` (default 3; `--serial` or `1` to disable). A stage starts only when the previous one passed, because later stages read earlier reports (`qa-lead` checks that P0 gaps and CRITICAL findings were closed).
 - **Approvals expire.** Every pass records the working-tree snapshot it approved. On the next run, the change *since that approval* is routed on its own; if it would select the gate, the gate is re-opened. A migration fix re-opens `data-reviewer`; a 5-line typo fix re-opens nothing; deltas accumulate from the original approval, so many small edits still add up.
 - **Fresh context per gate.** A sub-agent or separate process, not the implementer's own context — independence is the point. The in-session role-play fallback is allowed but must be flagged in the summary.
-- **Persist verbatim.** Append each report to `runs/<id>/<role>.md` with a timestamp heading. Under the report, add an `### Actions taken by implementer` list: fixed / deferred (with reason) / disputed (with reason).
+- **Persist verbatim, through `record`.** `orchestrator.py record <role> --task <id> < report.md` appends the report to `runs/<id>/<role>.md` with its timestamp heading, rotates and updates `_state.json` (the headless `run` does this itself). Do not edit role files by hand: hand-written text is invisible to state and `status --since`, `status --task` warns about it, and the next `record` moves it to `_archive/`. Under the latest report, add an `### Actions taken by implementer` list: fixed / deferred (with reason) / disputed (with reason).
 
 ## Retry budget
 
@@ -67,9 +77,10 @@ Hitting the budget means the direction or the scope is wrong — a human decisio
 
 ```
 .omni-team/runs/<task-id>/
-├── tech-lead.md          plan (append-only; re-plans append)
+├── tech-lead.md          plan (via `record`; re-plans append)
 ├── <role>.md             one file per gate: index of older reports + reports since the last rotation
-├── _archive/<role>.md    full text of rotated reports (append-only)
+├── _archive/<role>.md    full text of rotated reports and journal sessions (append-only)
+├── _journal.md           implementer's log, one `## Session <time>` per working session: done / open / next / waiting on
 ├── smoke/                smoke-tester evidence (screenshots, logs)
 ├── _checks.md           Gate 0 log (command, exit code, output tail on failure)
 ├── _state.json           orchestrator state (gates, attempts, verdicts, approved snapshots)
@@ -80,6 +91,8 @@ Hitting the budget means the direction or the scope is wrong — a human decisio
 Per-role files keep each gate's history clean and let a later agent load just the report it needs. The folder location is `artifacts_dir` in the profile. Commit it for an audit trail, or add `.omni-team/runs/` to `.gitignore`.
 
 **Rotation.** Role files are read on every re-review and by `qa-lead` / `pm`, so they are size-capped: once a file would exceed `orchestrator.artifact_max_kb` (default 40, `0` disables), its older reports move verbatim to `_archive/<role>.md` and the hot file keeps an index (when, verdict, one-line summary per older report) plus the newest report. Nothing is deleted. Re-reviews start with an *Earlier findings* table (stable `F1, F2 …` ids → RESOLVED / OPEN / DISPUTED) and repeat full text only for open and new findings, which keeps each report short. Readers never load `_archive/` unless they must check one specific old finding. Reports produced outside the orchestrator go through the same path: `orchestrator.py record <role> --task <id> < report.md`.
+
+**Journal, not daily folders.** Long tasks span days, but artifacts are never split per day and never summarised by an agent: a summary of a summary drifts, and finding ids, line references and verdicts are what later readers need verbatim. The implementer appends one session per working session to `_journal.md` (`orchestrator.py journal --task <id> < session.md`), which rotates like the role files. Every report and session carries its timestamp, so `orchestrator.py status --since <date>` builds the day-by-day view across tasks on demand (read-only).
 
 If you commit the runs folder, mark archives as generated so pull-request diffs collapse them:
 
@@ -98,8 +111,11 @@ If you commit the runs folder, mark archives as generated so pull-request diffs 
 | `run --task <id> [--fresh] [--skip-checks] [--serial]` | Gate 0, then pending gates stage by stage; resumes from `_state.json`; adds newly-routed gates; re-opens invalidated approvals |
 | `run-gate <role> --task <id>` | force one gate |
 | `status --task <id>` | print state |
+| `status --since <date> [--task <id>]` | activity by day across tasks (reports, rotated ones included, and journal sessions); `<date>` is `YYYY-MM-DD`, `today`, `yesterday` or `<n>d` |
+| `journal --task <id> [--file f]` | append a working session to `_journal.md` (stdin or file), with rotation |
 | `prompt <role> --task <id>` | print the full prompt for a manual/fresh-session run |
 | `record <role> --task <id> [--file f]` | persist a report produced elsewhere (stdin or file): rotation + verdict into `_state.json` |
+| `setup [--ui-probe]` | install the toolset into `.omni-team/.venv`: Python environment (PyYAML); `--ui-probe`: Playwright + a browser for `tools/ui-probe.mjs`. Idempotent |
 
 Useful flags: `--engine`, `--base <ref>`, `--committed-only`, `--spec <path>`, `--request "<text>"`, `--dry-run`, `--timeout <s>`. Exit codes: 0 ready · 1 paused for fixes · 2 config error · 3 REQUEST_CHANGES budget · 4 BLOCK budget · 5 unparseable verdict · 6 needs a human · 7 project checks failed.
 

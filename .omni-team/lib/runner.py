@@ -12,6 +12,7 @@ from __future__ import annotations
 import datetime as dt
 import re
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -138,6 +139,8 @@ def run_gate(
         output = _execute(argv, stdin, project_root, timeout_s)
     duration_s = (dt.datetime.now() - started).total_seconds()
     verdict = parse_verdict(output)
-    artifacts.append(artifact_path, artifacts.format_entry(role.name, verdict, started, duration_s, engine_name, output),
-                     max_kb)
+    moved = artifacts.append(artifact_path, artifacts.format_entry(role.name, verdict, started, duration_s, engine_name,
+                                                                    output), max_kb)
+    if moved == "stray":
+        print(f"   {artifact_path.name}: {artifacts.MOVED_NOTE[moved]}", file=sys.stderr)
     return GateResult(role.name, verdict, output, duration_s, artifact_path)

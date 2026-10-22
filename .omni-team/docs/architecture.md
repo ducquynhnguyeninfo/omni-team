@@ -43,8 +43,11 @@ Earlier versions rendered Layer 3 into templates through 100+ `{{placeholders}}`
 | `lib/routing.py` | evaluate predicates and signals, select and order gates | stdlib |
 | `lib/runner.py` | build prompt, run engine argv, parse verdict, append artifact | stdlib |
 | `lib/state.py` | `RunState` / `GateState` JSON persistence | stdlib |
+| `lib/artifacts.py` | per-role report files and the task journal: append, size-capped rotation into `_archive/`, index | stdlib |
+| `lib/activity.py` | read-only day-by-day activity across tasks from report and journal timestamps (`status --since`) | stdlib |
+| `lib/bootstrap.py` | the toolset in `.omni-team/.venv`: `setup` (venv + pip; `--ui-probe`: Playwright under `.venv/node`, Chromium when no Chrome/Edge starts); re-runs every command under the venv | stdlib |
 
-`install.py` imports only stdlib modules so a freshly copied folder can register itself without `pip`. Only the orchestrator needs PyYAML.
+`install.py` imports only stdlib modules so a freshly copied folder can register itself without `pip`. Only the orchestrator needs PyYAML, and it sets that up itself: `orchestrator.py setup` (the first step of `omni-setup`) creates `.omni-team/.venv`; when run directly, `orchestrator.py` re-runs itself under that venv when it exists, or creates it when PyYAML is missing (git-ignored, kept on upgrade, skipped by `vendor.py`). Modules import PyYAML lazily, so importing `orchestrator` (tests) never re-runs anything. `OMNI_TEAM_NO_BOOTSTRAP=1` turns it off.
 
 ## State machine (orchestrator)
 

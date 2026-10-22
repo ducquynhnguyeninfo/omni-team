@@ -32,7 +32,7 @@ FOLDER = ".omni-team"
 MANIFEST = ".vendor.json"
 GENERATED_LIST = ".generated"                 # written by install.py: adapter files it manages
 HOST_OWNED = ("project", "runs")              # preserved on upgrade
-EXCLUDED_NAMES = {"__pycache__", ".DS_Store", ".pytest_cache"}
+EXCLUDED_NAMES = {"__pycache__", ".DS_Store", ".pytest_cache", ".venv"}
 EXCLUDED_SUFFIXES = (".pyc", ".pyo")
 MARKER_FILE = Path("team") / "_protocol.md"   # proves a folder is an omni-team copy
 
@@ -41,7 +41,7 @@ MARKER_FILE = Path("team") / "_protocol.md"   # proves a folder is an omni-team 
 RUNTIME_SET: Tuple[str, ...] = (
     ".gitignore", "AGENTS.md", "CLAUDE.md", "GEMINI.md", "VERSION", "requirements.txt",
     "defaults.yaml", "orchestrator.py",
-    "lib/__init__.py", "lib/artifacts.py", "lib/checks.py", "lib/diffscope.py", "lib/pipeline.py", "lib/profile.py",
+    "lib/__init__.py", "lib/activity.py", "lib/artifacts.py", "lib/bootstrap.py", "lib/checks.py", "lib/diffscope.py", "lib/pipeline.py", "lib/profile.py",
     "lib/roles.py", "lib/routing.py", "lib/runner.py", "lib/state.py",
     "tools/ui-probe.mjs", "tools/ui-probe-page.js",
     "team/",
