@@ -16,7 +16,7 @@ Classify ─► Define ─► Design ─► Plan ─► Implement ─► Gate 0 
 | Define | `ba` (no testable spec) | `<spec_root>/<id>.md` or `runs/<id>/spec.md` — stories, rules, Given/When/Then AC |
 | Design | `architect` DESIGN (structural change only) | ADR in the project's ADR folder or `runs/<id>/adr.md` |
 | Plan | `tech-lead` (+ `pm` TASKING for team delivery) | `runs/<id>/tech-lead.md` — phases, acceptance criteria, open questions; `runs/<id>/tasks/` — assignable tickets |
-| Implement | main agent or human | code + green project checks |
+| Implement | main agent, implementer sub-agents it dispatches, or a human | code + green project checks |
 | Gate 0 | project checks (lint / typecheck / test) | `runs/<id>/_checks.md` |
 | Review | routed gates, stage by stage | `runs/<id>/<role>.md` per gate |
 | Accept | `qa-lead`, then `smoke-tester` | acceptance table, smoke evidence |
@@ -54,6 +54,10 @@ Trivial (no plan, no gates): ≲15 changed lines, docs-only, formatting, or a pu
 ## Planning
 
 `tech-lead` is not a review gate; it runs before code exists. Skip it only for small fixes whose shape is obvious. Its acceptance-criteria list becomes `qa-lead`'s fallback acceptance source when there is no spec, so it is worth running for any feature.
+
+## Coordinator and implementer sub-agents
+
+A main agent that types code, runs suites and waits on scripts blocks the conversation: the user's next message waits for the tool call to end. So the main agent coordinates — classify, clarify, plan, dispatch, verify, persist, hand off — and sends each plan phase or ticket to a background implementer sub-agent with a work order (AGENTS.md §5). Gate independence is unchanged: reviewers are fresh sub-agents, and an implementer sub-agent never reviews its own work. The coordinator checks the diff and Gate 0 itself before review, because a sub-agent's report is a claim. Small work stays with the main agent; a brief that costs more than the edit is waste.
 
 ## Review gates
 

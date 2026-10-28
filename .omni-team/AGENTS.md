@@ -6,7 +6,7 @@ You are working in a repository that vendors **omni-team**: a stack-agnostic tea
 
 ## The model in one paragraph
 
-You — the main agent — are the **implementer**. The team members are **an analyst, an architect, a technical planner, a project manager, reviewers and a release manager**; they never write code. For any non-trivial change you make sure the requirements are clear (`ba`), the structure is decided (`architect`, when it changes), plan with `tech-lead`, implement, pass Gate 0 (the project's own checks), then pass the change through review **gates** stage by stage. Each gate returns a machine-readable verdict. You fix what they find and re-run that gate. When every routed gate passes, you hand off to the **human gate**. Nobody on the team — including you — commits, pushes or merges.
+You — the main agent — are the **coordinator** and the implementer of record: you do short work yourself and hand longer implementation to **implementer sub-agents**, so the conversation stays open for the user (§5). The team members are **an analyst, an architect, a technical planner, a project manager, reviewers and a release manager**; they never write code. For any non-trivial change you make sure the requirements are clear (`ba`), the structure is decided (`architect`, when it changes), plan with `tech-lead`, implement, pass Gate 0 (the project's own checks), then pass the change through review **gates** stage by stage. Each gate returns a machine-readable verdict. You fix what they find and re-run that gate. When every routed gate passes, you hand off to the **human gate**. Nobody on the team — including you — commits, pushes or merges.
 
 ## Files you need
 
@@ -70,6 +70,17 @@ Invoke `tech-lead` with the request or spec. Persist its report with `python3 .o
 When several people (or a BA/PO) deliver the work, follow with `pm` in **TASKING** mode: it turns the tech-lead plan into MECE, capacity-allocated tickets under `runs/<task-id>/tasks/`, each named by its own task id (see §1). `pm` is never a review gate; it is also invoked on demand (`/pm` skill) for charters, roadmaps, status/weekly reports, RAID, prioritisation and retros — see `skills/pm/SKILL.md`.
 
 ### 5. Implement
+
+**Stay responsive: delegate long work.** Implementing a plan phase or a ticket, a long test suite or Gate 0 run, a smoke run, any script that takes more than a minute or two → a **background sub-agent** (gates already are sub-agents). Do it yourself only when the brief would take longer than the work: a trivial fix (≲15 lines), a single read, a quick command. While it runs, answer the user; do not poll. Each implementer sub-agent gets a work order and follows the working rules below; it never commits. Parallel writers only on disjoint files, each in its own git worktree when the tool supports it; never edit files a running sub-agent owns. Its "done" is a claim: read its diff and re-run Gate 0 (in the background too) before review. `REQUEST_CHANGES` findings go back to an implementer sub-agent (the same one, resumed, when the tool allows) with their finding ids. You keep the journal and persist reports with `record`. A fresh sub-agent starts cold: give it paths and the plan, not a search, and a whole phase, not one edit.
+
+```
+Task id: <id>          Work: phase <n> of runs/<id>/tech-lead.md | ticket runs/<epic>/tasks/<n>.<ticket-id>.md
+Acceptance source: <spec path | ticket file | runs/<id>/tech-lead.md>
+Owns: <files/folders it may change>     Must not touch: <files/folders>
+Done when: <verification commands and the expected result>
+Reply: changed files · commands run with the decisive output line · deviations from the plan · open questions
+       last line: STATUS: DONE | BLOCKED — <summary>
+```
 
 Follow the plan phase by phase, mirroring the reference pattern it names. Respect `project/conventions.md`. The gates review what you produce; these rules keep findings from appearing in the first place:
 
@@ -141,6 +152,8 @@ Focus / notes from the implementer: <optional>
 
 ### Tools without native sub-agents (Gemini CLI, Cursor, Copilot, Aider, …)
 
+Without background sub-agents, implement in-session and run long commands in the background where the tool allows. For gates:
+
 1. Preferred — **headless, separate process** (independent context = honest review): `python3 .omni-team/orchestrator.py run-gate <role> --task <id> --engine claude|codex`, or define your CLI under `orchestrator.engines` in the profile.
 2. Or print the complete prompt and run it in a fresh chat/session: `python3 .omni-team/orchestrator.py prompt <role> --task <id>`.
 3. Last resort — **role-play pass** in the same session: announce "Switching to role <role>", read the protocol and role file, produce the report with the verdict line, save it, then announce "Back to implementer". Review your own work adversarially; say in the summary that the gate ran in-session.
@@ -155,7 +168,7 @@ Runs Gate 0 (project checks), then the routed gates stage by stage — gates ins
 
 ## Non-negotiables
 
-1. The team plans and reviews; **only the implementer edits code**.
+1. The team plans and reviews; **only the implementer — you, or an implementer sub-agent you dispatched — edits code**. Review roles never do.
 2. **Gate 0 first; then stage by stage.** Never start a stage before the previous one passed; only gates of the same stage may run together.
 3. **Verdicts come from the `VERDICT:` line**, never from "sounds positive".
 4. **Retry budget is real**: 3 rounds per gate, then a human decides.
