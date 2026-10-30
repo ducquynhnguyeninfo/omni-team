@@ -1,0 +1,15 @@
+{
+  "name": "omni-team",
+  "description": "omni-team: a stack-agnostic AI review team you install into any repository",
+  "owner": {
+    "name": "Nguyễn Đức Quỳnh",
+    "url": "https://github.com/ducquynhnguyeninfo"
+  },
+  "plugins": [
+    {
+      "name": "omni-team",
+      "source": "./",
+      "description": "Install or upgrade omni-team (roles, workflows, orchestrator) in the current workspace"
+    }
+  ]
+}

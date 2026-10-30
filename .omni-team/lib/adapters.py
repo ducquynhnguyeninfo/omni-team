@@ -41,7 +41,9 @@ release-manager).
   `.omni-team/project/conventions.md`.
 - Entry points: `omni-task` (full flow), `omni-plan`, `omni-review`, `omni-ship`, `omni-setup`,
   and per role `ba`, `architect`, `pm`, `release`.
-- The team never commits, pushes or merges — shipping is a human decision."""
+- Reviewers never commit. The implementer commits/pushes its own fixes only when asked or when
+  `automation.pr_fix` allows (default off), never to the default or a protected branch: it uses a
+  work branch and opens a pull request. Merging is always a human decision."""
 
 
 def yaml_scalar(value: str) -> str:

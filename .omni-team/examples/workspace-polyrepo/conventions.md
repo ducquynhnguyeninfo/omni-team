@@ -3,7 +3,7 @@
 ## All roles
 
 - This is a private workspace. `backend/` and `mobile/` are separate git repositories that are delivered to the client; never add AI files, agent reports or AI-related ignore rules inside them.
-- Read diffs per repository (`git -C backend diff …`, `git -C mobile diff …`); commit and push each repository separately (humans only).
+- Read diffs per repository (`git -C backend diff …`, `git -C mobile diff …`); commit and push each repository separately (humans, or the agent within `automation.pr_fix`; merging is human).
 - Specs, ADRs and PM documents live in `docs/` of the workspace, not in the product repos.
 
 ## Requirements

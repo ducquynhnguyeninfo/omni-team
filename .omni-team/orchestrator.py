@@ -11,6 +11,8 @@ orchestrator.py — headless runner for the omni-team review gates.
     python3 .omni-team/orchestrator.py prompt   code-reviewer --task T-1   # print the full prompt
     python3 .omni-team/orchestrator.py record   code-reviewer --task T-1 < report.md   # persist a sub-agent's report
     python3 .omni-team/orchestrator.py journal  --task T-1 < session.md    # append to the task journal
+    python3 .omni-team/orchestrator.py automation --task T-1 --action push   # may the agent push its fixes now?
+    python3 .omni-team/orchestrator.py bands --metrics metrics.json   # production metrics vs project/bands.yaml
     python3 .omni-team/orchestrator.py setup [--ui-probe]   # install the toolset into .omni-team/.venv
 
 Common flags: --engine claude|codex|<custom>, --base <ref>, --committed-only,
@@ -22,7 +24,9 @@ Exit codes: 0 ready for the human gate · 1 paused (fix findings, re-run) ·
 exhausted · 5 unparseable verdict · 6 needs a human (clarification / blocked env) ·
 7 project checks (Gate 0) failed.
 
-The orchestrator NEVER commits, pushes or merges. It stops at the human gate.
+The orchestrator itself never commits, pushes or merges; it stops at the human gate. `automation`
+only answers whether the agent may commit/push its own fixes (profile `automation.pr_fix`,
+off by default); merging stays human.
 Runs under .omni-team/.venv when it exists (lib/bootstrap.py), creating it on first use when
 PyYAML is missing; OMNI_TEAM_NO_BOOTSTRAP=1 keeps the current interpreter.
 """
@@ -40,8 +44,8 @@ FRAMEWORK_ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = FRAMEWORK_ROOT.parent
 sys.path.insert(0, str(FRAMEWORK_ROOT))
 
-from lib import activity, artifacts, bootstrap, checks, diffscope, pipeline, profile  # noqa: E402
-from lib.pipeline import EXIT_CHECKS, EXIT_CONFIG, EXIT_PAUSED, EXIT_READY  # noqa: E402
+from lib import activity, artifacts, automation, bands, bootstrap, checks, cli, diffscope, pipeline, profile  # noqa: E402
+from lib.pipeline import EXIT_CHECKS, EXIT_CONFIG, EXIT_HUMAN, EXIT_PAUSED, EXIT_READY  # noqa: E402
 from lib.roles import RoleError, load_protocol, load_roles, role_by_name  # noqa: E402
 from lib.routing import RoutingError, plan_stages, select_gates  # noqa: E402
 from lib.runner import EngineError, build_prompt, parse_verdict, run_gate  # noqa: E402
@@ -66,6 +70,7 @@ class Context:
         self.args = args
         self.tree = profile.load(args.profile)
         self.orch: Dict[str, Any] = self.tree.get("orchestrator", {})
+        self.automation = automation.policy(self.tree)
         self.task_id = args.task or ""     # only `status --since` runs without a task
         if self.task_id and not TASK_ID_RE.match(self.task_id):
             raise profile.ProfileError(f"task id '{self.task_id}' may only contain letters, digits, . _ -")
@@ -182,6 +187,7 @@ def write_summary(ctx: Context, state: RunState) -> None:
         f"- project checks (Gate 0): {'green on ' + state.checks_green_tree[:12] if state.checks_green_tree else 'not green yet'}"
         f" — log: [_checks.md](_checks.md)\n"
         f"- next step: {ctx.tree.get('human_gate', 'human review')}\n"
+        f"- automation: {ctx.automation.describe()}\n"
         f"{commit_hint(ctx)}\n"
         f"| Gate | Status | Last verdict | Attempts | Note | Report |\n|---|---|---|---|---|---|\n{rows}\n"
     )
@@ -293,6 +299,7 @@ def cmd_classify(ctx: Context) -> int:
     print(f"➕ Add rules: {', '.join(sel.add_rules) or '(none)'}")
     print(f"🧪 Gate 0: {', '.join(c.name for c in checks.resolve(ctx.tree, ctx.diff.scope.components)) or '(none configured)'}")
     print(f"🧩 Stages ({len(sel.gates)} gates): {stages_text(sel.stages)}")
+    print(f"🤖 Automation: {ctx.automation.describe()}")
     return EXIT_READY
 
 
@@ -422,6 +429,37 @@ def cmd_record(ctx: Context) -> int:
     return EXIT_READY if code is None else code
 
 
+def cmd_automation(ctx: Context) -> int:
+    """May the agent commit/push its own fixes now, unasked? 0 yes · 6 no (reasons and the way forward)."""
+    state = ctx.load_state()
+    repos = [r for r in ctx.diff.repos if r.changed] or ctx.diff.repos
+    branches = {}
+    for r in repos:
+        nested = r.key != diffscope.WORKSPACE
+        path = PROJECT_ROOT / r.key if nested else PROJECT_ROOT
+        branches[r.key if nested else "workspace"] = automation.RepoBranch(
+            automation.current_branch(path), automation.default_branch(path), automation.push_target(path),
+            automation.commits_ahead(path), f"-C {r.key} " if nested else "")
+    gates = {name: (state.gate(name).status if state.gate(name) else "not run") for name in ctx.selection.gates}
+    summary = ctx.artifacts / "_summary.md"
+    ok, report = automation.verdict(ctx.automation, ctx.args.action, ctx.task_id, branches,
+                                    state.checks_green_tree == ctx.diff.tree, state.phase, gates,
+                                    ctx.rel(summary) if summary.exists() else f"<file: short body linking {ctx.rel(ctx.artifacts)}/>")
+    print(report)
+    return EXIT_READY if ok else EXIT_HUMAN
+
+
+def cmd_bands(args) -> int:
+    path = args.bands or FRAMEWORK_ROOT / "project" / "bands.yaml"
+    try:
+        metrics = bands.parse(profile.read_yaml(path))
+        results = bands.evaluate(metrics, bands.load_metrics(Path(args.metrics).read_text(encoding="utf-8")))
+    except (bands.BandsError, OSError) as exc:
+        raise profile.ProfileError(f"{path}: {exc}") from exc
+    print(bands.render(results))
+    return bands.exit_code(results)
+
+
 def cmd_prompt(ctx: Context) -> int:
     role = role_by_name(ctx.args.role)
     print(build_prompt(role, load_protocol(), invocation_text(ctx, GateState(name=role.name))))
@@ -432,65 +470,17 @@ def cmd_prompt(ctx: Context) -> int:
 # CLI
 # ---------------------------------------------------------------------------
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    sub = parser.add_subparsers(dest="cmd", required=True)
-
-    def common(p: argparse.ArgumentParser, task_required: bool = True) -> None:
-        p.add_argument("--task", required=task_required, help="work-unit id, e.g. TASK-12 (used for the artifacts folder)")
-        p.add_argument("--profile", type=Path, help="profile path (default: .omni-team/project/profile.yaml)")
-        p.add_argument("--base", help="git base ref (default: orchestrator.base_ref)")
-        p.add_argument("--committed-only", action="store_true", help="ignore uncommitted / untracked changes")
-        p.add_argument("--spec", help="spec / ticket path passed to the roles")
-        p.add_argument("--request", help="plain-language task statement passed to the roles")
-        p.add_argument("--engine", help="engine name under orchestrator.engines (default: orchestrator.engine)")
-        p.add_argument("--timeout", type=int, help="per-gate timeout in seconds")
-        p.add_argument("--dry-run", action="store_true", help="no AI calls and no checks; synthetic APPROVE verdicts")
-
-    for name, helptext in (("classify", "show scope, Gate 0 checks and routed stages"),
-                           ("checks", "run Gate 0 (project checks) only"),
-                           ("run", "Gate 0, then pending gates stage by stage"), ("status", "show state")):
-        p = sub.add_parser(name, help=helptext)
-        common(p, task_required=name != "status")
-        if name == "status":
-            p.add_argument("--since", type=since_arg, help="activity by day since YYYY-MM-DD, today, yesterday or <n>d "
-                                                           "(all tasks unless --task)")
-        if name == "run":
-            p.add_argument("--fresh", action="store_true", help="discard existing state and start over")
-            p.add_argument("--skip-checks", action="store_true", help="skip Gate 0 (project checks)")
-            p.add_argument("--serial", action="store_true", help="one gate at a time, even inside a stage")
-    for name, helptext in (("run-gate", "run one named gate"), ("prompt", "print a role's full prompt"),
-                           ("record", "persist a report produced elsewhere (stdin or --file)")):
-        p = sub.add_parser(name, help=helptext)
-        p.add_argument("role")
-        common(p)
-        if name == "record":
-            p.add_argument("--file", help="report file (default: read stdin)")
-    p = sub.add_parser("journal", help="append a working session to the task journal (stdin or --file)")
-    common(p)
-    p.add_argument("--file", help="session notes file (default: read stdin)")
-    p = sub.add_parser("setup", help="install the toolset into .omni-team/.venv (Python; --ui-probe: Playwright)")
-    p.add_argument("--ui-probe", action="store_true", help="also Playwright and a browser for tools/ui-probe.mjs")
-    return parser
-
-
-def since_arg(value: str) -> str:
-    try:
-        return activity.since_date(value, dt.date.today())
-    except ValueError:
-        raise argparse.ArgumentTypeError(f"expected YYYY-MM-DD, today, yesterday or <n>d, got '{value}'") from None
-
-
 def main(argv: Optional[list] = None) -> int:
-    args = build_parser().parse_args(argv)
+    args = cli.build_parser(__doc__).parse_args(argv)
     if args.cmd == "setup":
         return bootstrap.setup(FRAMEWORK_ROOT, args.ui_probe)
     dispatch = {"classify": cmd_classify, "checks": cmd_checks, "run": cmd_run, "run-gate": cmd_run_gate,
-                "status": cmd_status, "prompt": cmd_prompt, "record": cmd_record, "journal": cmd_journal}
+                "status": cmd_status, "prompt": cmd_prompt, "record": cmd_record, "journal": cmd_journal,
+                "automation": cmd_automation}
     try:
-        return dispatch[args.cmd](Context(args))
+        return cmd_bands(args) if args.cmd == "bands" else dispatch[args.cmd](Context(args))
     except (profile.ProfileError, RoutingError, RoleError, EngineError, diffscope.GitError,
-            checks.ChecksError) as exc:
+            checks.ChecksError, automation.AutomationError) as exc:
         print(f"❌ {exc}", file=sys.stderr)
         return EXIT_CONFIG
 

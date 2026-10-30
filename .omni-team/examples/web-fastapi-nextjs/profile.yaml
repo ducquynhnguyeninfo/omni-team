@@ -15,6 +15,8 @@ work_unit:
 
 artifacts_dir: document/agent-runs/{task_id}
 human_gate: "Codex cross-check → manual commit"
+automation:
+  pr_fix: "off"                 # commit | push let the agent commit/push its own fixes (docs/automation.md)
 
 components:
   - name: api

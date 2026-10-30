@@ -11,6 +11,7 @@
 | Detailed flow, artifacts, retry budget, CI | [workflow.md](workflow.md) |
 | What each role owns | [roles.md](roles.md) |
 | Tool specifics (Claude, Codex, Gemini, others), engines | [adapters.md](adapters.md) |
+| Letting the agent commit/push fixes, production metrics, org-wide limits | [automation.md](automation.md) |
 
 ## Changing the framework
 
@@ -22,6 +23,7 @@
 | `lib/runner.py`, verdict tokens | [architecture.md](architecture.md) + [critical-rules.md](critical-rules.md) §4 |
 | `install.py`, `lib/adapters.py` | [adapters.md](adapters.md) + [critical-rules.md](critical-rules.md) §8, §9 |
 | `orchestrator.py`, state machine | [architecture.md](architecture.md) + [workflow.md](workflow.md) |
+| `lib/automation.py`, `lib/bands.py`, `examples/automation/` | [automation.md](automation.md) + [critical-rules.md](critical-rules.md) §5 |
 | Profile keys, conventions sections | [profile.md](profile.md) + [critical-rules.md](critical-rules.md) §10 |
 | File approaching 500 lines | [code-quality.md](code-quality.md) |
 | "Where does X live?" | [repository-layout.md](repository-layout.md) |

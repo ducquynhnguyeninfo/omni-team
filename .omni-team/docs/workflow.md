@@ -21,7 +21,7 @@ Classify ─► Define ─► Design ─► Plan ─► Implement ─► Gate 0 
 | Review | routed gates, stage by stage | `runs/<id>/<role>.md` per gate |
 | Accept | `qa-lead`, then `smoke-tester` | acceptance table, smoke evidence |
 | Hand off | main agent | `runs/<id>/_summary.md`, message to the human |
-| Ship | **human only** | commit, push, merge |
+| Ship | human; the agent commits/pushes its own fixes only when asked or per `automation.pr_fix` | commit, push (work branch), pull request; **merge stays human** |
 | Release | `release-manager` PREPARE → READINESS; humans tag and deploy | `runs/release-<version>/release-manager.md` |
 
 ## Project management (`pm`)
@@ -119,6 +119,8 @@ If you commit the runs folder, mark archives as generated so pull-request diffs 
 | `journal --task <id> [--file f]` | append a working session to `_journal.md` (stdin or file), with rotation |
 | `prompt <role> --task <id>` | print the full prompt for a manual/fresh-session run |
 | `record <role> --task <id> [--file f]` | persist a report produced elsewhere (stdin or file): rotation + verdict into `_state.json` |
+| `automation --task <id> --action commit\|push` | may the agent commit/push its own fixes now, unasked? Checks `automation.pr_fix`, the branch and push target, Gate 0 on the current snapshot, a halted run, every routed gate passed. Exit 0 yes (with the pull-request step for a push) · 6 no (reasons, and on the default or a protected branch the way forward: `git switch -c <prefix><id>`) |
+| `bands --metrics <file.json> [--bands <file>]` | classify production metrics against `project/bands.yaml`; exit 0 normal/log · 1 diagnose · 6 propose. No task, no git, no AI calls |
 | `setup [--ui-probe]` | install the toolset into `.omni-team/.venv`: Python environment (PyYAML); `--ui-probe`: Playwright + a browser for `tools/ui-probe.mjs`. Idempotent |
 
 Useful flags: `--engine`, `--base <ref>`, `--committed-only`, `--spec <path>`, `--request "<text>"`, `--dry-run`, `--timeout <s>`. Exit codes: 0 ready · 1 paused for fixes · 2 config error · 3 REQUEST_CHANGES budget · 4 BLOCK budget · 5 unparseable verdict · 6 needs a human · 7 project checks failed.
@@ -130,6 +132,10 @@ CI sketch:
 - run: python3 .omni-team/orchestrator.py run --task "pr-${{ github.event.number }}" --base "origin/${{ github.base_ref }}" --committed-only
   env: { ANTHROPIC_API_KEY: "${{ secrets.ANTHROPIC_API_KEY }}" }
 ```
+
+## Automation
+
+Off by default. A project can let the agent commit and push its own fixes on a work branch and open the pull request (`automation.pr_fix: commit | push`, `branch_prefix`; never the default or a protected branch — those change only through a pull request a human merges), let production metrics start the flow (`project/bands.yaml` + `orchestrator.py bands`), and an organisation can enforce the limits with Claude Code managed settings. Merge stays the human gate at every level. See [automation.md](automation.md).
 
 ## Learning loop
 

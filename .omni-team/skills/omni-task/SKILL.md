@@ -20,7 +20,7 @@ Follow `.omni-team/AGENTS.md` — it is the authoritative playbook. Condensed:
    - After fixes, re-run any already-approved gate whose area your fixes touched (the orchestrator calls this "re-opened").
    - `NEEDS_CLARIFICATION` / `BLOCKED` → stop and ask the user.
 7. **Accept** — `qa-lead` (and `smoke-tester` if routed) run last, same loop.
-8. **Hand off** — write `<artifacts>/_summary.md` (gates, verdicts, fixes made, deferred items) and tell the user it is ready for **their** review. **Never commit, push or merge.**
+8. **Hand off** — write `<artifacts>/_summary.md` (gates, verdicts, fixes made, deferred items) and tell the user it is ready for **their** review. Commit or push only when the user asks, or when the profile's `automation.pr_fix` allows it and `python3 .omni-team/orchestrator.py automation --task <id> --action commit|push` exits 0 (`.omni-team/AGENTS.md` §8): work branch only, `Task: <id>` trailer, never force. Never commit or push to the default or a protected branch, even when asked: run the remedy the check prints (`git switch -c <prefix><id>`), push the work branch, open a pull request if it has none and record its URL in the journal. **Never merge, tag or release.**
 
 Whenever a session ends before the work does (end of day, hand-over, context about to reset), append a journal entry — **Done / Open / Next / Waiting on** — with `python3 .omni-team/orchestrator.py journal --task <id> < session.md` (or by hand under `## Session <ISO time>` in `<artifacts>/_journal.md`).
 

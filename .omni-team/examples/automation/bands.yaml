@@ -1,0 +1,23 @@
+# Example project/bands.yaml — production control bands (docs/automation.md#production-control-bands).
+# Optional: only for projects that want an agent to react to production metrics.
+# omni-team collects nothing; your job writes {"<metric>": <number>, ...} and runs
+#   python3 .omni-team/orchestrator.py bands --metrics metrics.json
+# Exit 0 normal/log · 1 diagnose · 6 propose · 2 bad bands/metrics file.
+version: 1
+metrics:
+  http_5xx_rate:              # share of requests answered 5xx over the last 15 minutes
+    direction: up             # higher is worse
+    log: 0.005
+    diagnose: 0.01
+    propose: 0.03
+    owner: api-oncall
+  p95_latency_ms:
+    log: 400
+    diagnose: 800
+    propose: 1500
+  checkout_success_rate:
+    direction: down           # lower is worse
+    log: 0.98
+    diagnose: 0.95
+    propose: 0.90
+    owner: payments

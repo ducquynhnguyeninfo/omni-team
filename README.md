@@ -2,7 +2,28 @@
 
 A **stack-agnostic team of AI sub-agents** — an analyst, an architect, a project manager, a technical planner, seven reviewers and a release manager — that gate every non-trivial change before a human ships it. Works with any language or framework and with Claude Code, Codex, Gemini CLI and any agent that reads `AGENTS.md`.
 
-This repository is the development home. **The product is the [`.omni-team/`](.omni-team/) folder** — copy it into a project and it works:
+This repository is the development home. **The product is the [`.omni-team/`](.omni-team/) folder**: it is copied into a project, committed there, and works.
+
+**Claude Code plugin** (recommended). This repository is a plugin marketplace whose `omni-team` plugin installs and upgrades that folder:
+
+```text
+/plugin install omni-team --marketplace ducquynhnguyeninfo/omni-team   # once per machine (Claude Code 2.1.275+)
+/omni-team:install     # in a workspace: copy .omni-team/, register roles + skills, set up .omni-team/.venv
+/omni-team:upgrade     # later: fetch the latest plugin, upgrade the copy (keeps project/, runs/, .venv/)
+```
+
+Older Claude Code: `/plugin marketplace add ducquynhnguyeninfo/omni-team`, then `/plugin install omni-team@omni-team`. To offer the plugin to everyone who opens a repository, commit this to its `.claude/settings.json`; Claude Code adds the marketplace and enables the plugin for each teammate once they trust the folder:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "omni-team": { "source": { "source": "github", "repo": "ducquynhnguyeninfo/omni-team" } }
+  },
+  "enabledPlugins": { "omni-team@omni-team": true }
+}
+```
+
+**Without the plugin** (any tool, or CI) — run the installer from a checkout of this repository:
 
 ```bash
 python3 .omni-team/install.py --dir /path/to/your-project            # copy + register (Claude Code, Codex)
@@ -17,7 +38,7 @@ Full guide: **[.omni-team/README.md](.omni-team/README.md)** · Agent manual: [.
 
 ```
 request ─► ba · architect ─► tech-lead ─► implement ─► data · code · test · security · perf ─► qa-lead · smoke ─► HUMAN
-           (define/design)  (plan)       (main agent)     (Gate 0 checks, then routed gates)   (accept)    (commit)
+           (define/design)  (plan)       (main agent)     (Gate 0 checks, then routed gates)   (accept)    (merge)
 ```
 
 | Role | Owns |
@@ -41,6 +62,7 @@ request ─► ba · architect ─► tech-lead ─► implement ─► data · 
 - **Routing is data** — named signals (UI change, schema change, API surface, security-sensitive, dependencies, perf paths) with multi-stack default patterns, overridable per project.
 - **One source, many tools** — `install.py` (stdlib only) renders the same roles into `.claude/agents/*.md`, `.codex/agents/*.toml`, skills, and pointer blocks in `CLAUDE.md` / `AGENTS.md` / `GEMINI.md`.
 - **Headless when needed** — `orchestrator.py` runs gates through `claude -p`, `codex exec` or any CLI you declare, with state, retry budget and CI-friendly exit codes.
+- **Automation is opt-in** — a project can let the agent commit and push its own fixes on a work branch and open the pull request (`automation.pr_fix`; never on the default or a protected branch), let production metrics start the flow (control bands), and an organisation can enforce the limits with managed settings; merging always stays human ([.omni-team/docs/automation.md](.omni-team/docs/automation.md)).
 
 ## Developing the framework
 

@@ -11,8 +11,8 @@ Before declaring a change to omni-team itself complete:
 - [ ] **Role added/removed?** Followed [roles.md](roles.md) §adding-a-role (protocol table, AGENTS.md, README, defaults order).
 - [ ] **Docs links resolve** in every file you touched — and files shipped to projects (`RUNTIME_SET` in `lib/vendor.py`) link only to other shipped files.
 - [ ] **New runtime file** (read by agents or imported by `orchestrator.py`)? Added to `RUNTIME_SET`.
-- [ ] **No secrets**, no auto-commit/push anywhere, quality limits respected ([code-quality.md](code-quality.md)).
-- [ ] `VERSION` bumped for user-visible changes (major for breaking contract changes).
+- [ ] **No secrets**, quality limits respected ([code-quality.md](code-quality.md)). No commit/push outside the `automation` policy ([critical-rules.md](critical-rules.md) §5): defaults stay `off`, and a change to its boundaries updates `lib/automation.py`, `tests/test_automation.py` (incl. `examples/automation/git-guard.py`) and [automation.md](automation.md) together.
+- [ ] `VERSION` bumped for user-visible changes (major for breaking contract changes), and `.claude-plugin/plugin.json` → `version` with it — plugin users only receive a release when that string changes (`tests/test_plugin.py` checks they match).
 
 ## Smoke sequence
 

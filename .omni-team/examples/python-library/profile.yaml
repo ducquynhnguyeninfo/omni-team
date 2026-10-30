@@ -45,3 +45,8 @@ routing:
     - name: public-api-smoke
       when: { signals: [api_surface_change], loc_min: 20 }
       agents_add: [smoke-tester]          # imports the built wheel in a temp venv
+
+# The agent commits its fixes locally; a maintainer reviews and pushes (docs/automation.md).
+automation:
+  pr_fix: commit
+  protected_branches: [main, "maint/*"]

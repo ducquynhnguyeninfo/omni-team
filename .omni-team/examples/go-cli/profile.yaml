@@ -42,3 +42,9 @@ routing:
     - name: cli-surface-smoke
       when: { signals: [api_surface_change], loc_min: 30 }
       agents_add: [smoke-tester]
+
+# The agent commits and pushes its own fixes on its work branch (bot/<task-id>) and opens a
+# pull request (docs/automation.md); the default branch is protected on the server, merge stays human.
+automation:
+  pr_fix: push
+  branch_prefix: "bot/"

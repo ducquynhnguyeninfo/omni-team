@@ -14,7 +14,9 @@ work_unit:
   spec_root: docs/stories/
 
 artifacts_dir: .omni-team/runs/{task_id}
-human_gate: "Human review → commit + push in each changed repository"
+human_gate: "Human review → commit + push in each changed repository → merge"
+automation:
+  pr_fix: "off"                 # client repositories: humans commit and push (docs/automation.md)
 
 components:
   - name: backend

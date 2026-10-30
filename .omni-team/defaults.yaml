@@ -8,7 +8,19 @@
 # =============================================================================
 
 artifacts_dir: .omni-team/runs/{task_id}
-human_gate: "Human review (optionally a second-tool cross-check) → manual commit / push"
+human_gate: "Human review (optionally a second-tool cross-check) → commit / push (the agent's, when automation allows) → merge"
+
+# Automation (docs/workflow.md#automation). Off by default: the agent commits or
+# pushes only when the user asks. `commit` / `push` let it do so unasked for its
+# own fixes, on the work branch, after `orchestrator.py automation --action <a>`
+# says yes. Never on the default or a protected branch, whoever asks: the work
+# moves to <branch_prefix><task-id> and goes in through a pull request. Merge,
+# tag, release, force-push and history rewrites stay human at every level.
+# Quote "off": bare off is a YAML boolean (read as off anyway).
+automation:
+  pr_fix: "off"                  # off | commit | push
+  protected_branches: [main, master, develop, "release/*", "hotfix/*"]   # plus origin's default branch; main and master are always protected
+  branch_prefix: "omni/"         # work branch for a task: omni/<task-id>
 
 quality_limits:
   file_lines: 500

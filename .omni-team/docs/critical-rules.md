@@ -10,7 +10,7 @@ Rules for **changing the framework** that must never be silently relaxed. When i
 
 4. **Verdicts come only from the `VERDICT:` line.** `lib/runner.py` parses the last `VERDICT:` line against the token list in `_protocol.md`; anything else is `UNKNOWN` and halts. Never infer a verdict from prose. Token list changes must update `_protocol.md`, `runner.py` and its tests together.
 
-5. **Never commit, push, merge or tag** from any script, role or skill. The human gate is the product.
+5. **Merging stays human; committing and pushing are opt-in.** No script or reviewer role commits, pushes, merges or tags. The implementer commits or pushes its own fixes only when the user asks, or unasked when the project's `automation.pr_fix` allows it and `orchestrator.py automation` says yes — on a work branch, never forced. Nothing is ever committed or pushed to the default or a protected branch, whoever asks: the work moves to `<branch_prefix><task-id>` and reaches those branches only through a pull request. Merge, tag, release and deploy are always human. `pr_fix` defaults to `off`; no change may make an existing project start committing or pushing on upgrade. See [automation.md](automation.md).
 
 6. **Stages run serially; only gates of one stage may run together.** Later stages read earlier reports from the artifacts folder. A gate may share a stage only with gates whose reports it does not need. Gate 0 (project checks) always precedes the first AI gate, and an approval is void once the change since it would re-route that gate.
 

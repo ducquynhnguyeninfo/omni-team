@@ -26,7 +26,7 @@ python3 .omni-team/orchestrator.py classify --task fw-change --profile omni-dev-
 
 ## Golden rules in one breath
 
-Roles are stack-agnostic prose; project facts are read at run time from `project/`; routing is YAML; `install.py` is stdlib-only and touches only its own output; verdicts come from the `VERDICT:` line; gates run serially; nothing commits.
+Roles are stack-agnostic prose; project facts are read at run time from `project/`; routing is YAML; `install.py` is stdlib-only and touches only its own output; verdicts come from the `VERDICT:` line; gates run serially; no script or reviewer commits, the implementer only per `automation.pr_fix` (default `off`), and merge stays human.
 
 ## Compatibility notes (v1 → v2)
 
@@ -160,3 +160,18 @@ Selected practices from other agent toolkits (superpowers, gstack, Claude Code's
 | Change | Impact |
 |---|---|
 | Coordinator mode: the main agent delegates long work (plan phases, tickets, long suites, smoke runs) to background implementer sub-agents with a work order (`AGENTS.md` §5, template block) and stays responsive; it verifies the diff and Gate 0 before review, keeps the journal and `record`s reports. Non-negotiable #1: implementer sub-agents may edit code, review roles never. `CLAUDE.md`: Agent tool / fork, `isolation: "worktree"`, `run_in_background`. `omni-task` step 5 and `docs/workflow.md` updated | none; trivial work is still done directly, and tools without background sub-agents implement in-session |
+
+## Compatibility notes (v2.13 → v2.14)
+
+| Change | Impact |
+|---|---|
+| The repository is a Claude Code plugin marketplace: `.claude-plugin/marketplace.json` + `plugin.json` (plugin `omni-team` = repository root) with two skills, `/omni-team:install` and `/omni-team:upgrade`, that run `install.py --dir <git root>` / `install.py upgrade` from the plugin, then `orchestrator.py setup`. `plugin.json` → `version` follows `VERSION` (enforced by `tests/test_plugin.py`; definition-of-done updated). README, `docs/adapters.md`, `docs/repository-layout.md`, `AGENTS.md` §0 and `omni-setup` step 7 mention the plugin | none; installing from a checkout works as before. Claude Code users can switch to `/plugin install omni-team --marketplace ducquynhnguyeninfo/omni-team`; a team can enable it for a repository in `.claude/settings.json` (README) |
+
+## Compatibility notes (v2.14 → v2.15)
+
+| Change | Impact |
+|---|---|
+| Opt-in automation ([automation.md](automation.md), shipped). New profile key `automation` (`pr_fix: off \| commit \| push`, `protected_branches`, `branch_prefix` default `omni/`), merged key by key, validated loudly; default `off`. Never to the default or a protected branch, whoever asks: on one, `automation` exits 6 with the way forward (`git switch -c <prefix><task-id>`, push it, `gh pr create`); after an allowed push it prints the pull-request step. New `orchestrator.py automation --task <id> --action commit\|push` checks the boundaries before an unasked commit/push (work branch, Gate 0 green on the snapshot, no halted run; for a push every routed gate passed — pending or not run blocks — and a push target that is not the default or a protected branch) and exits 0 / 6; `classify` and `_summary.md` print the level. Critical rule §5, `AGENTS.md` §8 + non-negotiable 5, `_protocol.md` ownership table, `omni-task`, `omni-ship`, the generated pointer block and README now read "merge stays human; commit/push only when asked or per `automation.pr_fix`". `omni-setup` asks the user for the level | **none by default**: without an `automation` key the agent commits or pushes only when asked, as before. To opt in, add `automation: {pr_fix: commit}` (or `push`, with server-side protection of the default branch) to `project/profile.yaml` |
+| Production control bands: optional `project/bands.yaml` and `orchestrator.py bands --metrics <file.json>` (`lib/bands.py`, deterministic; exit 0 normal/log · 1 diagnose · 6 propose); a breach enters the normal flow through `ba` | none; only projects that add `bands.yaml` and a scheduled job use it |
+| Organisation enforcement examples: `examples/automation/managed-settings.json` (enable the plugin, deny force-push/merge, `git-guard.py` PreToolUse hook) and `examples/automation/pr-fix.yml` (GitHub Actions fix loop). `install.py` never writes managed-settings paths | none; admins deploy them deliberately |
+| `orchestrator.py` argument parser moved to `lib/cli.py`; new runtime files `lib/automation.py`, `lib/bands.py`, `lib/cli.py`, `docs/automation.md` in `RUNTIME_SET` | none; `install.py upgrade` ships them |

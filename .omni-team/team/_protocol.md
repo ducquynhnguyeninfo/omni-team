@@ -110,4 +110,5 @@ Do not print any other line starting with `VERDICT:` — the orchestrator reads 
 | Does the change satisfy the spec / acceptance criteria? | `qa-lead` |
 | Does the built thing actually run and behave? | `smoke-tester` |
 | Release package (version, changelog, notes, deploy/rollback plan) and go/no-go | `release-manager` |
-| Shipping (commit, push, merge, release) | **the human — never a role** |
+| Committing / pushing fixes | the implementer — when the user asks or `automation.pr_fix` allows; **never a review role** |
+| Shipping (merge, tag, release, deploy) | **the human — never a role** |

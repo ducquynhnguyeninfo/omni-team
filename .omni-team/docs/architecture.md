@@ -45,6 +45,9 @@ Earlier versions rendered Layer 3 into templates through 100+ `{{placeholders}}`
 | `lib/state.py` | `RunState` / `GateState` JSON persistence | stdlib |
 | `lib/artifacts.py` | per-role report files and the task journal: append, size-capped rotation into `_archive/`, index | stdlib |
 | `lib/activity.py` | read-only day-by-day activity across tasks from report and journal timestamps (`status --since`) | stdlib |
+| `lib/automation.py` | `automation` policy: validate `pr_fix` / `protected_branches` / `branch_prefix`, check the boundaries (branch and push target, Gate 0, halted run, every routed gate passed) before an unasked commit/push, and print the way forward (work branch, push, pull request); reads git only | stdlib + git |
+| `lib/bands.py` | production control bands: parse `project/bands.yaml`, classify a metrics JSON into normal/log/diagnose/propose | stdlib |
+| `lib/cli.py` | the orchestrator's argument parser | stdlib |
 | `lib/bootstrap.py` | the toolset in `.omni-team/.venv`: `setup` (venv + pip; `--ui-probe`: Playwright under `.venv/node`, Chromium when no Chrome/Edge starts); re-runs every command under the venv | stdlib |
 
 `install.py` imports only stdlib modules so a freshly copied folder can register itself without `pip`. Only the orchestrator needs PyYAML, and it sets that up itself: `orchestrator.py setup` (the first step of `omni-setup`) creates `.omni-team/.venv`; when run directly, `orchestrator.py` re-runs itself under that venv when it exists, or creates it when PyYAML is missing (git-ignored, kept on upgrade, skipped by `vendor.py`). Modules import PyYAML lazily, so importing `orchestrator` (tests) never re-runs anything. `OMNI_TEAM_NO_BOOTSTRAP=1` turns it off.
@@ -75,4 +78,4 @@ Gate statuses: `pending`, `passed`, `request_changes`, `block`, `needs_human`, `
 - **Strict verdict line.** `VERDICT: <TOKEN>` on the last matching line; anything else is `UNKNOWN` and halts. Inferring "looks approved" from prose defeats the audit trail.
 - **Working-tree scope.** Review happens before commit, so uncommitted and untracked files are in scope by default.
 - **Data-driven routing.** Signals and rules are YAML; Python only evaluates. Stack knowledge lives in signal patterns, which projects can override by name.
-- **Never ship.** No component commits, pushes, merges or tags.
+- **Never ship.** No component commits, pushes, merges or tags. `orchestrator.py automation` only *checks* whether the implementer may commit/push its own fixes (profile `automation.pr_fix`, off by default); the commit itself is the agent's — on a work branch, never the default or a protected one, which change only through a pull request — and merge stays human.

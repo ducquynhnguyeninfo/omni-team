@@ -45,6 +45,17 @@ Safety properties:
 
 Generated files are build output: edit the sources, never the output. Commit them or git-ignore them as you prefer — `install.py` regenerates them in milliseconds.
 
+## Claude Code plugin
+
+The omni-team repository is also a Claude Code plugin marketplace (`.claude-plugin/marketplace.json`; the plugin `omni-team` is the repository root, `.claude-plugin/plugin.json`). The plugin adds no roles or hooks of its own — only two skills that run this installer from the plugin's copy of the repository (`${CLAUDE_PLUGIN_ROOT}/.omni-team/install.py`):
+
+| Skill | Runs |
+|---|---|
+| `/omni-team:install` | `install.py --dir <git root>` (`--tools` passed through), then `orchestrator.py setup [--ui-probe]` |
+| `/omni-team:upgrade` | `claude plugin marketplace update` + `claude plugin update` first, then `install.py upgrade --dir <git root>` from the updated plugin, `setup`, `classify` |
+
+The result is the same vendored copy and generated files as running the installer from a checkout, so other tools and CI see no difference. `plugin.json` pins `version` to `VERSION`, so users receive a release when `VERSION` changes, not on every commit. `.vendor.json` → `source` then names the versioned plugin-cache folder. Organisations can enable the plugin for everyone, and hard-enforce the automation limits, with managed settings — see [automation.md](automation.md#organisation-enforcement); the installer never writes managed-settings paths.
+
 ## Using a role without installing
 
 Every tool can use the canonical files directly: "Read `.omni-team/team/_protocol.md` and `.omni-team/team/<role>.md`, act as that role for: …". Installing only adds convenience (auto-selection by description, `/skills`, per-role tool/sandbox limits, model per tier).

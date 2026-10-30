@@ -1,0 +1,14 @@
+{
+  "name": "omni-team",
+  "displayName": "omni-team",
+  "version": "2.15.0",
+  "description": "Install or upgrade omni-team in the current workspace: vendors .omni-team/, registers its roles and skills, sets up its toolset",
+  "author": {
+    "name": "Nguyễn Đức Quỳnh",
+    "url": "https://github.com/ducquynhnguyeninfo"
+  },
+  "homepage": "https://github.com/ducquynhnguyeninfo/omni-team",
+  "repository": "https://github.com/ducquynhnguyeninfo/omni-team",
+  "license": "MIT",
+  "keywords": ["code-review", "agents", "workflow", "multi-agent"]
+}

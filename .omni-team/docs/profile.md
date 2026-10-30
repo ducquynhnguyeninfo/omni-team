@@ -6,6 +6,7 @@ Two files in [`../project/`](../project/) hold everything project-specific. They
 |---|---|---|---|
 | `profile.yaml` | YAML | every role at run time, `orchestrator.py` | structured facts: components, commands, URLs, spec location, overrides |
 | `conventions.md` | Markdown | every role at run time | the rulebook: architecture, invariants, per-role rules |
+| `bands.yaml` (optional) | YAML | `orchestrator.py bands` | production control bands — only for projects that opt in; see [automation.md](automation.md#production-control-bands) |
 
 Both work **empty**. Any `auto` value or missing section is inferred by the roles from the repository, and each report lists those inferences under *Assumptions* — your cue for what to write down. Run the `omni-setup` skill to have an agent draft both files.
 
@@ -29,7 +30,11 @@ Both work **empty**. Any `auto` value or missing section is inferred by the role
 | `components[].repo` | bool | force (`true`) or disable (`false`) nested-repository handling; default: the folder contains `.git` — see [workspace.md](workspace.md) |
 | `checks` | `auto` / list of shell / `none` | **Gate 0**: list → each command at the repo root; `auto` → `lint`/`typecheck`/`test` of the touched components (all when none touched); `none` → disabled. Must pass before any AI gate |
 
-Optional overrides of [`../defaults.yaml`](../defaults.yaml): `artifacts_dir`, `human_gate`, `quality_limits`, `signals`, `routing`, `orchestrator`.
+| `automation.pr_fix` | `off` / `commit` / `push` | may the agent commit (and push) its own fixes unasked, on the work branch? Default `off`; quote it (`"off"`) — a bare `off` is a YAML boolean, read as `off` too. See [automation.md](automation.md) |
+| `automation.protected_branches` | list of globs | never committed or pushed to by the agent, besides origin's default branch, `main` and `master` (always protected, whatever the list says) — the work goes on a work branch and in through a pull request; default `main, master, develop, release/*, hotfix/*` |
+| `automation.branch_prefix` | string | the work branch for a task is `<prefix><task-id>`; default `omni/`. Must be a valid branch-name prefix |
+
+Optional overrides of [`../defaults.yaml`](../defaults.yaml): `artifacts_dir`, `human_gate`, `quality_limits`, `automation`, `signals`, `routing`, `orchestrator`.
 
 ### Merge rules
 
@@ -39,7 +44,7 @@ Optional overrides of [`../defaults.yaml`](../defaults.yaml): `artifacts_dir`, `
 |---|---|
 | any other top-level key | profile replaces default |
 | `signals` | merged by signal name — redefine one signal without copying the others |
-| `quality_limits` | merged key by key |
+| `quality_limits`, `automation` | merged key by key (`protected_branches` replaces the default list) |
 | `orchestrator` | merged key by key; `engines` merged by engine name; `retry_budget` merged key by key |
 | `routing.stages` (or legacy `order`) / `routing.base` / `routing.add_if` | each replaces the default when present; a project `stages` or `order` replaces the default layout entirely |
 | `routing.extra_add_if` | appended to the (default or replaced) `add_if` list |
@@ -113,4 +118,4 @@ Writing tips:
 python3 .omni-team/orchestrator.py classify --task check   # parses profile + routing; exits 2 on errors
 ```
 
-Errors are loud by design: unknown predicates, undefined signals, invalid regexes, malformed components and invalid YAML all fail with the file and key named.
+Errors are loud by design: unknown predicates, undefined signals, invalid regexes, malformed components, an unknown `automation` key or level, and invalid YAML all fail with the file and key named.

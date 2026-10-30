@@ -4,7 +4,7 @@ project's overrides (project/profile.yaml).
 
 Merge rules (documented in docs/profile.md):
   - top-level keys in the profile replace the defaults' keys,
-  - except `signals` (merged by signal name), `quality_limits` and
+  - except `signals` (merged by signal name), `quality_limits`, `automation` and
     `orchestrator` (merged key by key, `engines` merged by engine name),
   - and `routing`, where stages|order / base / add_if each replace the default
     when given and `extra_add_if` is appended to add_if.
@@ -81,8 +81,11 @@ def merge(defaults: Dict[str, Any], profile: Dict[str, Any]) -> Dict[str, Any]:
     merged = {**defaults, **profile}
     if "signals" in profile:
         merged["signals"] = {**defaults.get("signals", {}), **(profile["signals"] or {})}
-    if "quality_limits" in profile:
-        merged["quality_limits"] = {**defaults.get("quality_limits", {}), **profile["quality_limits"]}
+    for key in ("quality_limits", "automation"):
+        if key in profile:
+            if not isinstance(profile[key] or {}, dict):
+                raise ProfileError(f"{key} must be a mapping")
+            merged[key] = {**(defaults.get(key) or {}), **(profile[key] or {})}
     if "orchestrator" in profile:
         merged["orchestrator"] = _merge_orchestrator(
             defaults.get("orchestrator", {}), profile["orchestrator"] or {}
